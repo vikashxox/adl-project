@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../utils/app_theme.dart';
-import '../../services/app_session.dart';
+import '../../services/auth_service.dart';
 
 class BeneficiaryLoginScreen extends StatefulWidget {
   const BeneficiaryLoginScreen({super.key});
@@ -12,9 +12,15 @@ class BeneficiaryLoginScreen extends StatefulWidget {
 
 class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
   bool _isOtpStep = false;
+  bool _loading = false;
+  String? _error;
+  String? _verificationId;
+
   final _mobileController = TextEditingController();
-  final List<TextEditingController> _otpControllers = List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
+  final List<TextEditingController> _otpControllers =
+      List.generate(6, (_) => TextEditingController());
+  final List<FocusNode> _otpFocusNodes =
+      List.generate(6, (_) => FocusNode());
 
   @override
   void dispose() {
@@ -24,9 +30,42 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
     super.dispose();
   }
 
-  void _handleMobileSubmit() {
-    if (_mobileController.text.length == 10) {
-      setState(() => _isOtpStep = true);
+  Future<void> _sendOtp() async {
+    setState(() { _loading = true; _error = null; });
+
+    await AuthService.sendOtp(
+      phoneNumber: '+91${_mobileController.text.trim()}',
+      onCodeSent: (id) {
+        if (!mounted) return;
+        setState(() {
+          _verificationId = id;
+          _isOtpStep = true;
+          _loading = false;
+        });
+      },
+      onError: (msg) {
+        if (!mounted) return;
+        setState(() { _error = msg; _loading = false; });
+      },
+    );
+  }
+
+  Future<void> _verifyOtp() async {
+    final otp = _otpControllers.map((c) => c.text).join();
+    if (otp.length != 6 || _verificationId == null) return;
+
+    setState(() { _loading = true; _error = null; });
+
+    final error = await AuthService.verifyOtp(
+      verificationId: _verificationId!,
+      otp: otp,
+    );
+
+    if (!mounted) return;
+    if (error != null) {
+      setState(() { _error = error; _loading = false; });
+    } else {
+      Navigator.pushReplacementNamed(context, '/beneficiary-dashboard');
     }
   }
 
@@ -38,14 +77,6 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
     }
   }
 
-  void _handleOtpSubmit() {
-    final otp = _otpControllers.map((c) => c.text).join();
-    if (otp.length == 6) {
-      AppSession.setBeneficiary();
-      Navigator.pushReplacementNamed(context, '/beneficiary-dashboard');
-    }
-  }
-
   bool get _isOtpComplete => _otpControllers.every((c) => c.text.isNotEmpty);
 
   @override
@@ -53,67 +84,52 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
     return Scaffold(
       body: Column(
         children: [
-          // Header — full-width gradient extending behind the status bar
           Container(
             width: double.infinity,
             decoration: const BoxDecoration(gradient: AppGradients.blueHeader),
             padding: EdgeInsets.fromLTRB(
               20,
-              MediaQuery.of(context).padding.top + 16, // status bar + extra
+              MediaQuery.of(context).padding.top + 16,
               20,
               36,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Back button row
                 GestureDetector(
                   onTap: () {
                     if (_isOtpStep) {
-                      setState(() => _isOtpStep = false);
+                      setState(() { _isOtpStep = false; _error = null; });
                     } else {
                       Navigator.pop(context);
                     }
                   },
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
+                    children: [
                       Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
                       SizedBox(width: 6),
-                      Text(
-                        'Back',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                      Text('Back',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500)),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Welcome Back',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  ),
-                ),
+                const Text('Welcome Back',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2)),
                 const SizedBox(height: 6),
-                Text(
-                  'Login to access your loan details',
-                  style: TextStyle(
-                    color: Colors.blue[100],
-                    fontSize: 14,
-                  ),
-                ),
+                Text('Login to access your loan details',
+                    style: TextStyle(color: Colors.blue[100], fontSize: 14)),
               ],
             ),
           ),
-
-          // Content
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
@@ -132,42 +148,63 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
         Container(
           width: 80,
           height: 80,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
-            shape: BoxShape.circle,
-          ),
+          decoration: const BoxDecoration(
+              color: Color(0xFFEFF6FF), shape: BoxShape.circle),
           child: const Icon(Icons.smartphone, size: 40, color: AppTheme.blue600),
         ),
         const SizedBox(height: 24),
         const Align(
           alignment: Alignment.centerLeft,
-          child: Text('Mobile Number', style: TextStyle(fontSize: 14, color: AppTheme.gray700, fontWeight: FontWeight.w500)),
+          child: Text('Mobile Number',
+              style: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.gray700,
+                  fontWeight: FontWeight.w500)),
         ),
         const SizedBox(height: 16),
         TextField(
           controller: _mobileController,
           keyboardType: TextInputType.phone,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-          decoration: const InputDecoration(hintText: 'Enter 10-digit mobile number'),
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10),
+          ],
+          decoration:
+              const InputDecoration(hintText: 'Enter 10-digit mobile number'),
           onChanged: (_) => setState(() {}),
         ),
+        if (_error != null) ...[
+          const SizedBox(height: 12),
+          Text(_error!,
+              style: const TextStyle(color: AppTheme.red600, fontSize: 12)),
+        ],
         const SizedBox(height: 16),
-        const Text(
-          'Enter the mobile number registered with your loan account',
-          style: TextStyle(fontSize: 11, color: AppTheme.gray500),
-        ),
+        const Text('Enter the mobile number registered with your loan account',
+            style: TextStyle(fontSize: 11, color: AppTheme.gray500)),
         const SizedBox(height: 24),
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            gradient: _mobileController.text.length == 10 ? AppGradients.blueHeader : null,
-            color: _mobileController.text.length == 10 ? null : AppTheme.gray200,
+            gradient: _mobileController.text.length == 10
+                ? AppGradients.blueHeader
+                : null,
+            color: _mobileController.text.length == 10
+                ? null
+                : AppTheme.gray200,
             borderRadius: BorderRadius.circular(12),
           ),
           child: ElevatedButton(
-            onPressed: _mobileController.text.length == 10 ? _handleMobileSubmit : null,
+            onPressed: _mobileController.text.length == 10 && !_loading
+                ? _sendOtp
+                : null,
             style: AppTheme.elevatedOnGradient(),
-            child: const Text('Send OTP'),
+            child: _loading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                : const Text('Send OTP'),
           ),
         ),
       ],
@@ -181,11 +218,16 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
         Container(
           width: 80,
           height: 80,
-          decoration: const BoxDecoration(color: Color(0xFFF0FDF4), shape: BoxShape.circle),
+          decoration: const BoxDecoration(
+              color: Color(0xFFF0FDF4), shape: BoxShape.circle),
           child: const Icon(Icons.lock, size: 40, color: AppTheme.green600),
         ),
         const SizedBox(height: 24),
-        const Text('Enter OTP', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: AppTheme.gray800)),
+        const Text('Enter OTP',
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.gray800)),
         const SizedBox(height: 16),
         Text.rich(
           TextSpan(
@@ -194,7 +236,8 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
             children: [
               TextSpan(
                 text: '+91 ${_mobileController.text}',
-                style: const TextStyle(color: AppTheme.gray800, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                    color: AppTheme.gray800, fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -203,45 +246,56 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
         const SizedBox(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(6, (index) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: SizedBox(
-              width: 46,
-              height: 54,
-              child: TextField(
-                controller: _otpControllers[index],
-                focusNode: _otpFocusNodes[index],
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                maxLength: 1,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  counterText: '',
-                  contentPadding: EdgeInsets.zero,
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppTheme.gray200, width: 2),
+          children: List.generate(
+            6,
+            (index) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: SizedBox(
+                width: 46,
+                height: 54,
+                child: TextField(
+                  controller: _otpControllers[index],
+                  focusNode: _otpFocusNodes[index],
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 1,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    counterText: '',
+                    contentPadding: EdgeInsets.zero,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: AppTheme.gray200, width: 2),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: AppTheme.blue500, width: 2),
+                    ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppTheme.blue500, width: 2),
-                  ),
+                  style: const TextStyle(fontSize: 20),
+                  onChanged: (value) {
+                    _handleOtpChange(index, value);
+                    setState(() {});
+                  },
                 ),
-                style: const TextStyle(fontSize: 20),
-                onChanged: (value) {
-                  _handleOtpChange(index, value);
-                  setState(() {});
-                },
               ),
             ),
-          )),
+          ),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 12),
+          Text(_error!,
+              style: const TextStyle(color: AppTheme.red600, fontSize: 12)),
+        ],
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: _loading ? null : _sendOtp,
+          child: const Text('Resend OTP',
+              style: TextStyle(color: AppTheme.blue600, fontSize: 13)),
         ),
         const SizedBox(height: 16),
-        TextButton(
-          onPressed: () {},
-          child: const Text('Resend OTP', style: TextStyle(color: AppTheme.blue600, fontSize: 13)),
-        ),
-        const SizedBox(height: 24),
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
@@ -250,9 +304,15 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: ElevatedButton(
-            onPressed: _isOtpComplete ? _handleOtpSubmit : null,
+            onPressed: _isOtpComplete && !_loading ? _verifyOtp : null,
             style: AppTheme.elevatedOnGradient(),
-            child: const Text('Verify & Login'),
+            child: _loading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                : const Text('Verify & Login'),
           ),
         ),
       ],
