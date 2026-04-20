@@ -1,21 +1,61 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/app_session.dart';
+
 /// Beneficiary profile screen — shows personal info and loan summary.
-class BeneficiaryProfileScreen extends StatelessWidget {
+class BeneficiaryProfileScreen extends StatefulWidget {
   const BeneficiaryProfileScreen({super.key});
 
   @override
+  State<BeneficiaryProfileScreen> createState() => _BeneficiaryProfileScreenState();
+}
+
+class _BeneficiaryProfileScreenState extends State<BeneficiaryProfileScreen> {
+  Map<String, dynamic>? _profile;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    final phone = AppSession.beneficiaryPhone;
+    if (phone == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('beneficiaries')
+          .where('phone', isEqualTo: phone)
+          .limit(1)
+          .get();
+
+      if (snap.docs.isNotEmpty) {
+        if (mounted) setState(() => _profile = snap.docs.first.data());
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Dummy beneficiary data
-    const profile = {
-      'name': 'Ramesh Kumar',
-      'mobile': '+91 98765 43210',
-      'address': '123, Green Valley, Sector 12, Jaipur, Rajasthan - 302001',
-      'loanCount': '2',
-      'email': 'ramesh.kumar@email.com',
-      'aadhar': 'XXXX XXXX 4532',
-    };
+    if (_isLoading) {
+      return const Scaffold(backgroundColor: AppTheme.gray50, body: Center(child: CircularProgressIndicator()));
+    }
+
+    final name = _profile?['name'] ?? AppSession.beneficiaryName ?? 'N/A';
+    final mobile = _profile?['phone'] ?? AppSession.beneficiaryPhone ?? 'N/A';
+    final address = _profile?['address'] ?? 'N/A';
+    final loanCount = '1'; // Currently singular per login
+    final email = 'N/A';
+    final aadhar = 'N/A';
+    final amount = _profile?['loanAmount']?.toString() ?? AppSession.loanAmount?.toString() ?? '0';
 
     return Scaffold(
       backgroundColor: AppTheme.gray50,
@@ -70,7 +110,7 @@ class BeneficiaryProfileScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                Text(profile['name']!, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
+                Text(name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text('Beneficiary', style: TextStyle(color: Colors.blue[100], fontSize: 14)),
               ],
@@ -87,10 +127,10 @@ class BeneficiaryProfileScreen extends StatelessWidget {
                   _buildCard(
                     title: 'Personal Information',
                     children: [
-                      _buildInfoTile(Icons.phone, 'Mobile', profile['mobile']!),
-                      _buildInfoTile(Icons.email_outlined, 'Email', profile['email']!),
-                      _buildInfoTile(Icons.location_on_outlined, 'Address', profile['address']!),
-                      _buildInfoTile(Icons.credit_card, 'Aadhar', profile['aadhar']!),
+                      _buildInfoTile(Icons.phone, 'Mobile', mobile),
+                      _buildInfoTile(Icons.email_outlined, 'Email', email),
+                      _buildInfoTile(Icons.location_on_outlined, 'Address', address),
+                      _buildInfoTile(Icons.credit_card, 'Aadhar', aadhar),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -99,9 +139,9 @@ class BeneficiaryProfileScreen extends StatelessWidget {
                   _buildCard(
                     title: 'Loan Summary',
                     children: [
-                      _buildInfoTile(Icons.account_balance, 'Active Loans', profile['loanCount']!),
-                      _buildInfoTile(Icons.currency_rupee, 'Total Amount', '₹4,30,000'),
-                      _buildInfoTile(Icons.check_circle_outline, 'Repaid', '₹1,20,000'),
+                      _buildInfoTile(Icons.account_balance, 'Active Loans', loanCount),
+                      _buildInfoTile(Icons.currency_rupee, 'Total Amount', '₹$amount'),
+                      _buildInfoTile(Icons.check_circle_outline, 'Repaid', '₹0'),
                     ],
                   ),
                   const SizedBox(height: 24),

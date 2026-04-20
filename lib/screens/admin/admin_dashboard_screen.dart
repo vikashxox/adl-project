@@ -5,6 +5,8 @@ import 'admin_profile_screen.dart';
 import 'view_officers_screen.dart';
 import 'view_beneficiaries_screen.dart';
 import 'admin_uploads_screen.dart';
+import 'add_officer_screen.dart';
+import 'add_extra_loan_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -34,25 +36,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final stats = [
-      {'label': 'Total Beneficiaries', 'value': '${_statsData?['totalBeneficiaries'] ?? 1234}', 'icon': Icons.group, 'color': AppTheme.blue600, 'bg': const Color(0xFFEFF6FF)},
-      {'label': 'Total Loans', 'value': _statsData?['totalLoans'] ?? '₹12.5Cr', 'icon': Icons.trending_up, 'color': AppTheme.green600, 'bg': const Color(0xFFF0FDF4)},
-      {'label': 'Pending', 'value': '${_statsData?['pending'] ?? 45}', 'icon': Icons.access_time, 'color': AppTheme.amber600, 'bg': const Color(0xFFFFFBEB)},
-      {'label': 'Approved', 'value': '${_statsData?['approved'] ?? 892}', 'icon': Icons.check_circle, 'color': AppTheme.green600, 'bg': const Color(0xFFF0FDF4)},
+      {'label': 'Total Beneficiaries', 'value': '${_statsData?['totalBeneficiaries'] ?? 0}', 'icon': Icons.group, 'color': AppTheme.blue600, 'bg': const Color(0xFFEFF6FF)},
+      {'label': 'Total Loans', 'value': _statsData?['totalLoans'] ?? '₹0', 'icon': Icons.trending_up, 'color': AppTheme.green600, 'bg': const Color(0xFFF0FDF4)},
+      {'label': 'Pending', 'value': '${_statsData?['pending'] ?? 0}', 'icon': Icons.access_time, 'color': AppTheme.amber600, 'bg': const Color(0xFFFFFBEB)},
+      {'label': 'Approved', 'value': '${_statsData?['approved'] ?? 0}', 'icon': Icons.check_circle, 'color': AppTheme.green600, 'bg': const Color(0xFFF0FDF4)},
     ];
 
     final quickActions = [
       {'title': 'View all uploads', 'desc': 'See every submission (read-only)', 'icon': Icons.cloud_upload, 'gradient': const LinearGradient(colors: [Color(0xFF059669), Color(0xFF10B981)]), 'screen': const AdminUploadsScreen(allowReviewActions: false)},
       {'title': 'Add Beneficiary', 'desc': 'Create new loan record', 'icon': Icons.person_add, 'gradient': AppGradients.purpleHeader, 'route': '/admin-data-entry'},
+      {'title': 'Assign Extra Loan', 'desc': 'Add loan to existing beneficiary', 'icon': Icons.post_add, 'gradient': const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)]), 'screen': const AddExtraLoanScreen()},
+      {'title': 'Add Officer', 'desc': 'Create new officer record', 'icon': Icons.admin_panel_settings, 'gradient': AppGradients.blueHeader, 'screen': const AddOfficerScreen()},
       {'title': 'Export Report', 'desc': 'Download analytics reports', 'icon': Icons.bar_chart, 'gradient': AppGradients.greenHeader, 'route': '/admin-export-report'},
       {'title': 'System Settings', 'desc': 'Configure system', 'icon': Icons.settings, 'gradient': AppGradients.grayHeader, 'route': '/admin-settings'},
     ];
 
 
-    final fallbackActivity = [
-      {'id': 1, 'text': 'New beneficiary added: Ramesh Kumar', 'time': '2 hours ago'},
-      {'id': 2, 'text': 'Officer assigned to 5 new cases', 'time': '4 hours ago'},
-      {'id': 3, 'text': '23 verifications completed today', 'time': '6 hours ago'},
-    ];
+    final List<Map<String, dynamic>> fallbackActivity = [];
 
     final activity = _activityData.isNotEmpty ? _activityData : fallbackActivity;
 
@@ -320,11 +320,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     child: Column(
                       children: [
-                        _overviewRow('Active Officers', '24'),
+                        _overviewRow('Active Officers', '0'),
                         const Divider(height: 16),
-                        _overviewRow('Districts Covered', '12'),
+                        _overviewRow('Districts Covered', '0'),
                         const Divider(height: 16),
-                        _overviewRow('Success Rate', '87%', valueColor: AppTheme.green600),
+                        _overviewRow('Success Rate', '0%', valueColor: AppTheme.green600),
                       ],
                     ),
                   ),

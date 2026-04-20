@@ -53,14 +53,14 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
   @override
   Widget build(BuildContext context) {
     final loanData = (
-      id: AppSession.loanId ?? 'LN2026000000',
-      name: AppSession.beneficiaryName ?? 'Guest User',
+      id: AppSession.loanId ?? 'N/A',
+      name: AppSession.beneficiaryName ?? 'Unknown User',
       amount: AppSession.loanAmount ?? 0,
-      purpose: AppSession.loanPurpose ?? 'Unknown Purpose',
+      purpose: AppSession.loanPurpose ?? 'N/A',
       disbursedDate: _formatIsoDate(AppSession.disbursedDate),
       deadline: _formatIsoDate(AppSession.deadline),
       status: AppSession.loanStatus ?? 'pending',
-      progress: 40, // Static for now, could be derived from status
+      progress: 0, 
     );
 
     return Scaffold(

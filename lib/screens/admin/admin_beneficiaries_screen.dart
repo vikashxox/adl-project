@@ -14,14 +14,7 @@ class _AdminBeneficiariesScreenState extends State<AdminBeneficiariesScreen> {
   bool _isLoading = true;
   final _searchController = TextEditingController();
 
-  final _fallback = [
-    {'id': 'LN2026001234', 'name': 'Ramesh Kumar', 'status': 'Approved', 'amount': '₹2,50,000'},
-    {'id': 'LN2026001189', 'name': 'Sunita Devi', 'status': 'Pending', 'amount': '₹1,50,000'},
-    {'id': 'LN2026001156', 'name': 'Rajesh Sharma', 'status': 'Approved', 'amount': '₹3,00,000'},
-    {'id': 'LN2026001102', 'name': 'Lakshmi Iyer', 'status': 'Pending', 'amount': '₹1,80,000'},
-  ];
-
-  @override
+  final List<dynamic> _fallback = [];
   void initState() {
     super.initState();
     _loadBeneficiaries();

@@ -1,23 +1,70 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/app_session.dart';
+
 /// Officer profile screen — shows officer info, role, and contact details.
-class OfficerProfileScreen extends StatelessWidget {
+class OfficerProfileScreen extends StatefulWidget {
   const OfficerProfileScreen({super.key});
 
   @override
+  State<OfficerProfileScreen> createState() => _OfficerProfileScreenState();
+}
+
+class _OfficerProfileScreenState extends State<OfficerProfileScreen> {
+  Map<String, dynamic>? _profile;
+  int _assignedCount = 0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    final officerId = AppSession.officerId;
+    if (officerId == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('officers')
+          .where('username', isEqualTo: officerId)
+          .limit(1)
+          .get();
+
+      if (snap.docs.isNotEmpty) {
+        _profile = snap.docs.first.data();
+      }
+
+      final bs = await FirebaseFirestore.instance
+          .collection('beneficiaries')
+          .where('assignedOfficer', isEqualTo: officerId)
+          .get();
+      _assignedCount = bs.docs.length;
+    } catch (_) {}
+    
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Dummy officer data
-    const profile = {
-      'name': 'Priya Sharma',
-      'id': 'OFF-2026-042',
-      'role': 'Field Verification Officer',
-      'phone': '+91 87654 32100',
-      'email': 'priya.sharma@loandept.gov.in',
-      'district': 'Jaipur',
-      'assignedCases': '12',
-      'completedCases': '87',
-    };
+    if (_isLoading) {
+      return const Scaffold(backgroundColor: AppTheme.gray50, body: Center(child: CircularProgressIndicator()));
+    }
+
+    final name = _profile?['name'] ?? 'Unknown Officer';
+    final id = _profile?['username'] ?? AppSession.officerId ?? 'N/A';
+    final role = _profile?['role'] == 'admin' ? 'System Administrator' : 'Field Verification Officer';
+    final phone = _profile?['phone'] ?? 'N/A';
+    final email = _profile?['email'] ?? 'N/A';
+    final district = _profile?['district'] ?? 'N/A';
+    final assignedCases = _assignedCount.toString();
+    final completedCases = '0';
 
     return Scaffold(
       backgroundColor: AppTheme.gray50,
@@ -70,9 +117,9 @@ class OfficerProfileScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                Text(profile['name']!, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
+                Text(name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                Text(profile['role']!, style: TextStyle(color: Colors.green[100], fontSize: 14)),
+                Text(role, style: TextStyle(color: Colors.green[100], fontSize: 14)),
               ],
             ),
           ),
@@ -88,11 +135,11 @@ class OfficerProfileScreen extends StatelessWidget {
                     iconBg: const Color(0xFFF0FDF4),
                     iconColor: AppTheme.green600,
                     children: [
-                      _buildInfoTile(Icons.badge, 'Officer ID', profile['id']!),
-                      _buildInfoTile(Icons.work_outline, 'Role', profile['role']!),
-                      _buildInfoTile(Icons.phone, 'Phone', profile['phone']!),
-                      _buildInfoTile(Icons.email_outlined, 'Email', profile['email']!),
-                      _buildInfoTile(Icons.location_city, 'District', profile['district']!),
+                      _buildInfoTile(Icons.badge, 'Officer ID', id),
+                      _buildInfoTile(Icons.work_outline, 'Role', role),
+                      _buildInfoTile(Icons.phone, 'Phone', phone),
+                      _buildInfoTile(Icons.email_outlined, 'Email', email),
+                      _buildInfoTile(Icons.location_city, 'District', district),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -101,11 +148,11 @@ class OfficerProfileScreen extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: _statCard('Active Cases', profile['assignedCases']!, AppTheme.amber600, const Color(0xFFFFFBEB)),
+                        child: _statCard('Active Cases', assignedCases, AppTheme.amber600, const Color(0xFFFFFBEB)),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _statCard('Completed', profile['completedCases']!, AppTheme.green600, const Color(0xFFF0FDF4)),
+                        child: _statCard('Completed', completedCases, AppTheme.green600, const Color(0xFFF0FDF4)),
                       ),
                     ],
                   ),

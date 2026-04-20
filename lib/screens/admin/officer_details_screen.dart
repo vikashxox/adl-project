@@ -1,17 +1,55 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
 import 'beneficiary_details_screen.dart';
 
 /// Shows full officer details and their assigned beneficiaries list.
-class OfficerDetailsScreen extends StatelessWidget {
+class OfficerDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> officer;
 
   const OfficerDetailsScreen({super.key, required this.officer});
 
   @override
-  Widget build(BuildContext context) {
-    final beneficiaries = officer['beneficiaries'] as List<Map<String, dynamic>>;
+  State<OfficerDetailsScreen> createState() => _OfficerDetailsScreenState();
+}
 
+class _OfficerDetailsScreenState extends State<OfficerDetailsScreen> {
+  List<Map<String, dynamic>> _beneficiaries = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAssignedBeneficiaries();
+  }
+
+  Future<void> _fetchAssignedBeneficiaries() async {
+    final username = widget.officer['username'] as String?;
+    if (username == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('beneficiaries')
+          .where('assignedOfficer', isEqualTo: username)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _beneficiaries = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final officer = widget.officer;
     return Scaffold(
       backgroundColor: AppTheme.gray50,
       body: Column(
@@ -104,64 +142,73 @@ class OfficerDetailsScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(20)),
-                        child: Text('${beneficiaries.length}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.green600)),
+                        child: Text('${_beneficiaries.length}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.green600)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
 
                   // Beneficiaries List
-                  ...beneficiaries.map((b) => GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => BeneficiaryDetailsScreen(beneficiary: b)),
-                    ),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppTheme.gray200),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2))],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.person, size: 22, color: AppTheme.blue600),
+                  if (_isLoading)
+                    const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                  else if (_beneficiaries.isEmpty)
+                    const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No beneficiaries assigned.', style: TextStyle(color: AppTheme.gray500))))
+                  else
+                    ..._beneficiaries.map((b) {
+                      final loanStatus = b['status'] as String? ?? 'pending';
+                      final loanAmt = b['loanAmount'] ?? 0;
+                      return GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => BeneficiaryDetailsScreen(beneficiary: b)),
+                        ),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppTheme.gray200),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2))],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(b['name'] as String, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.gray800)),
-                                const SizedBox(height: 2),
-                                Text(b['loanId'] as String, style: const TextStyle(fontSize: 12, color: AppTheme.gray500)),
-                                const SizedBox(height: 4),
-                                Row(
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.person, size: 22, color: AppTheme.blue600),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      '₹${_formatAmount(b['loanAmount'] as int)}',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.gray700),
+                                    Text(b['name'] as String? ?? 'Unknown', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.gray800)),
+                                    const SizedBox(height: 2),
+                                    Text(b['loanId'] as String? ?? 'N/A', style: const TextStyle(fontSize: 12, color: AppTheme.gray500)),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '₹${_formatAmount(loanAmt is int ? loanAmt : int.tryParse(loanAmt.toString()) ?? 0)}',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.gray700),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _statusBadge(loanStatus),
+                                      ],
                                     ),
-                                    const SizedBox(width: 8),
-                                    _statusBadge(b['loanStatus'] as String),
                                   ],
                                 ),
-                              ],
-                            ),
+                              ),
+                              const Icon(Icons.chevron_right, color: AppTheme.gray400),
+                            ],
                           ),
-                          const Icon(Icons.chevron_right, color: AppTheme.gray400),
-                        ],
-                      ),
-                    ),
-                  )),
+                        ),
+                      );
+                    }).toList(),
                   const SizedBox(height: 16),
                 ],
               ),

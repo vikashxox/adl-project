@@ -25,6 +25,15 @@ class _OfficerLoginScreenState extends State<OfficerLoginScreen> {
 
   Future<void> _handleSubmit() async {
     if (_officerIdController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
+      // Hardcoded admin login override
+      if (_officerType == 'admin' && 
+          _officerIdController.text.trim() == 'admin' && 
+          _passwordController.text.trim() == 'admin') {
+        AppSession.setAdmin();
+        Navigator.pushReplacementNamed(context, '/admin-dashboard');
+        return;
+      }
+
       setState(() => _isLoading = true);
       try {
         final query = await FirebaseFirestore.instance

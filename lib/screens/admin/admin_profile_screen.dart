@@ -1,20 +1,60 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/app_session.dart';
+
 /// Admin profile screen — shows admin info, role, and system privileges.
-class AdminProfileScreen extends StatelessWidget {
+class AdminProfileScreen extends StatefulWidget {
   const AdminProfileScreen({super.key});
 
   @override
+  State<AdminProfileScreen> createState() => _AdminProfileScreenState();
+}
+
+class _AdminProfileScreenState extends State<AdminProfileScreen> {
+  Map<String, dynamic>? _profile;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    final officerId = AppSession.officerId;
+    if (officerId == null || officerId == 'admin') {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('officers')
+          .where('username', isEqualTo: officerId)
+          .limit(1)
+          .get();
+
+      if (snap.docs.isNotEmpty) {
+        _profile = snap.docs.first.data();
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const profile = {
-      'name': 'Dr. Amit Verma',
-      'id': 'ADM-2026-001',
-      'role': 'System Administrator',
-      'email': 'admin@loandept.gov.in',
-      'phone': '+91 99876 54321',
-      'department': 'Rural Development & Panchayati Raj',
-    };
+    if (_isLoading) {
+      return const Scaffold(backgroundColor: AppTheme.gray50, body: Center(child: CircularProgressIndicator()));
+    }
+
+    final name = _profile?['name'] ?? 'System Admin';
+    final id = _profile?['username'] ?? AppSession.officerId ?? 'admin';
+    final role = 'System Administrator';
+    final email = _profile?['email'] ?? 'admin@loandept.gov.in';
+    final phone = _profile?['phone'] ?? 'N/A';
+    final department = _profile?['department'] ?? 'Rural Development & Panchayati Raj';
 
     final privileges = [
       {'icon': Icons.group_add, 'label': 'Manage Beneficiaries', 'desc': 'Add, edit, and remove beneficiary records'},
@@ -75,9 +115,9 @@ class AdminProfileScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                Text(profile['name']!, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
+                Text(name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                Text(profile['role']!, style: TextStyle(color: Colors.purple[100], fontSize: 14)),
+                Text(role, style: TextStyle(color: Colors.purple[100], fontSize: 14)),
               ],
             ),
           ),
@@ -91,11 +131,11 @@ class AdminProfileScreen extends StatelessWidget {
                   _buildCard(
                     title: 'Admin Details',
                     children: [
-                      _buildInfoTile(Icons.badge, 'Admin ID', profile['id']!),
-                      _buildInfoTile(Icons.work_outline, 'Role', profile['role']!),
-                      _buildInfoTile(Icons.phone, 'Phone', profile['phone']!),
-                      _buildInfoTile(Icons.email_outlined, 'Email', profile['email']!),
-                      _buildInfoTile(Icons.apartment, 'Department', profile['department']!),
+                      _buildInfoTile(Icons.badge, 'Admin ID', id),
+                      _buildInfoTile(Icons.work_outline, 'Role', role),
+                      _buildInfoTile(Icons.phone, 'Phone', phone),
+                      _buildInfoTile(Icons.email_outlined, 'Email', email),
+                      _buildInfoTile(Icons.apartment, 'Department', department),
                     ],
                   ),
                   const SizedBox(height: 16),

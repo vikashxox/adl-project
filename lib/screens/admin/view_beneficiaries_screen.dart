@@ -1,22 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
 import 'beneficiary_details_screen.dart';
-import 'view_officers_screen.dart';
 
 /// Shows a flat list of all beneficiaries from all officers.
 /// Each beneficiary card is tappable to view full details.
-class ViewBeneficiariesScreen extends StatelessWidget {
+class ViewBeneficiariesScreen extends StatefulWidget {
   const ViewBeneficiariesScreen({super.key});
 
-  List<Map<String, dynamic>> get _allBeneficiaries {
-    final List<Map<String, dynamic>> all = [];
-    for (final officer in ViewOfficersScreen.officers) {
-      final beneficiaries = officer['beneficiaries'] as List<Map<String, dynamic>>;
-      for (final b in beneficiaries) {
-        all.add({...b, 'officerName': officer['name']});
+  @override
+  State<ViewBeneficiariesScreen> createState() => _ViewBeneficiariesScreenState();
+}
+
+class _ViewBeneficiariesScreenState extends State<ViewBeneficiariesScreen> {
+  List<Map<String, dynamic>> _beneficiaries = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBeneficiaries();
+  }
+
+  Future<void> _fetchBeneficiaries() async {
+    try {
+      final snap = await FirebaseFirestore.instance.collection('beneficiaries').get();
+      if (mounted) {
+        setState(() {
+          _beneficiaries = snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+          _isLoading = false;
+        });
       }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
     }
-    return all;
   }
 
   String _formatAmount(int amt) {
@@ -25,8 +42,6 @@ class ViewBeneficiariesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final beneficiaries = _allBeneficiaries;
-
     return Scaffold(
       backgroundColor: AppTheme.gray50,
       body: Column(
@@ -69,7 +84,7 @@ class ViewBeneficiariesScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('All Beneficiaries', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
-                        Text('${beneficiaries.length} records', style: TextStyle(color: Colors.blue[100], fontSize: 13)),
+                        Text('${_beneficiaries.length} records', style: TextStyle(color: Colors.blue[100], fontSize: 13)),
                       ],
                     ),
                   ],
@@ -80,80 +95,90 @@ class ViewBeneficiariesScreen extends StatelessWidget {
 
           // List
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: beneficiaries.length,
-              itemBuilder: (context, index) {
-                final b = beneficiaries[index];
-                final isApproved = b['loanStatus'] == 'approved';
-                return GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => BeneficiaryDetailsScreen(beneficiary: b)),
-                  ),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.person, size: 24, color: AppTheme.blue600),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(b['name'] as String, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.gray800)),
-                              const SizedBox(height: 2),
-                              Text(b['loanId'] as String, style: const TextStyle(fontSize: 12, color: AppTheme.gray500)),
-                              const SizedBox(height: 4),
-                              Row(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _beneficiaries.isEmpty
+                    ? const Center(child: Text('No beneficiaries found.', style: TextStyle(color: AppTheme.gray500)))
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _beneficiaries.length,
+                        itemBuilder: (context, index) {
+                          final b = _beneficiaries[index];
+                          final loanStatus = b['status'] as String? ?? 'pending';
+                          final isApproved = loanStatus == 'approved';
+                          final loanAmt = b['loanAmount'] ?? 0;
+                          
+                          // Compatibility mappings
+                          b['mobile'] = b['phone'];
+                          
+                          return GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => BeneficiaryDetailsScreen(beneficiary: b)),
+                            ),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))],
+                              ),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    '₹${_formatAmount(b['loanAmount'] as int)}',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.gray700),
-                                  ),
-                                  const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
-                                      color: isApproved ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+                                      color: const Color(0xFFEFF6FF),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child: Text(
-                                      isApproved ? 'Approved' : 'Pending',
-                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isApproved ? AppTheme.green600 : AppTheme.amber600),
+                                    child: const Icon(Icons.person, size: 24, color: AppTheme.blue600),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(b['name'] as String? ?? 'Unknown', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.gray800)),
+                                        const SizedBox(height: 2),
+                                        Text(b['loanId'] as String? ?? 'N/A', style: const TextStyle(fontSize: 12, color: AppTheme.gray500)),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '₹${_formatAmount(loanAmt is int ? loanAmt : int.tryParse(loanAmt.toString()) ?? 0)}',
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.gray700),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: isApproved ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                              child: Text(
+                                                isApproved ? 'Approved' : 'Pending',
+                                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isApproved ? AppTheme.green600 : AppTheme.amber600),
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            Text(
+                                              b['assignedOfficer'] as String? ?? 'Unassigned',
+                                              style: const TextStyle(fontSize: 10, color: AppTheme.gray400),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const Spacer(),
-                                  Text(
-                                    b['officerName'] as String,
-                                    style: const TextStyle(fontSize: 10, color: AppTheme.gray400),
-                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.chevron_right, color: AppTheme.gray400),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.chevron_right, color: AppTheme.gray400),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                            ),
+                          );
+                        },
+                      ),
           ),
         ],
       ),

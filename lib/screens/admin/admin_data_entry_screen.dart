@@ -10,8 +10,29 @@ class AdminDataEntryScreen extends StatefulWidget {
   State<AdminDataEntryScreen> createState() => _AdminDataEntryScreenState();
 }
 
-class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> {
+  List<Map<String, dynamic>> _officers = [];
+  bool _isLoadingOfficers = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOfficers();
+  }
+
+  Future<void> _fetchOfficers() async {
+    try {
+      final snap = await FirebaseFirestore.instance.collection('officers').where('role', isEqualTo: 'field').get();
+      if (mounted) {
+        setState(() {
+          _officers = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+          _isLoadingOfficers = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingOfficers = false);
+    }
+  }
 
   // --- BENEFICIARY FIELDS ---
   final _nameCtrl = TextEditingController();
@@ -29,26 +50,14 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> with Single
   DateTime? _disbursementDate;
   DateTime? _deadline;
 
-  // --- OFFICER FIELDS ---
-  final _offUsernameCtrl = TextEditingController();
-  final _offPasswordCtrl = TextEditingController();
-  String _offRole = 'field'; // 'field' or 'admin'
-
   bool _isSaving = false;
 
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
   void dispose() {
-    _tabController.dispose();
     _nameCtrl.dispose(); _mobileCtrl.dispose(); _addressCtrl.dispose();
     _villageCtrl.dispose(); _districtCtrl.dispose(); _stateCtrl.dispose();
     _pincodeCtrl.dispose(); _landLocationCtrl.dispose(); _landAreaCtrl.dispose();
-    _loanAmountCtrl.dispose(); _offUsernameCtrl.dispose(); _offPasswordCtrl.dispose();
+    _loanAmountCtrl.dispose();
     super.dispose();
   }
 
@@ -56,14 +65,13 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> with Single
       _nameCtrl.text.isNotEmpty &&
       _mobileCtrl.text.length == 10 &&
       _addressCtrl.text.isNotEmpty &&
+      _landLocationCtrl.text.isNotEmpty &&
+      _landAreaCtrl.text.isNotEmpty &&
       _loanAmountCtrl.text.isNotEmpty &&
       _loanPurpose.isNotEmpty &&
+      _assignedOfficer.isNotEmpty &&
       _disbursementDate != null &&
       _deadline != null;
-
-  bool get _isOffValid =>
-      _offUsernameCtrl.text.isNotEmpty &&
-      _offPasswordCtrl.text.isNotEmpty;
 
   void _resetBenForm() {
     _nameCtrl.clear(); _mobileCtrl.clear(); _addressCtrl.clear();
@@ -71,12 +79,6 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> with Single
     _pincodeCtrl.clear(); _landLocationCtrl.clear(); _landAreaCtrl.clear();
     _loanAmountCtrl.clear();
     setState(() { _loanPurpose = ''; _assignedOfficer = ''; _disbursementDate = null; _deadline = null; });
-  }
-
-  void _resetOffForm() {
-    _offUsernameCtrl.clear();
-    _offPasswordCtrl.clear();
-    setState(() { _offRole = 'field'; });
   }
 
   Future<void> _saveBeneficiary() async {
@@ -120,31 +122,6 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> with Single
     }
   }
 
-  Future<void> _saveOfficer() async {
-    setState(() => _isSaving = true);
-    try {
-      await FirebaseFirestore.instance.collection('officers').add({
-        'username': _offUsernameCtrl.text.trim(),
-        'password': _offPasswordCtrl.text.trim(),
-        'role': _offRole,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Officer Added Successfully!'), backgroundColor: Colors.green),
-      );
-      _resetOffForm();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
-
   Future<void> _pickDate(bool isDisbursement) async {
     final picked = await showDatePicker(
       context: context,
@@ -173,43 +150,21 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> with Single
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 50, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 50, 16, 24),
             decoration: const BoxDecoration(gradient: AppGradients.purpleHeader),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const Text('Admin Registry', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)),
-                  ],
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
                 ),
-                TabBar(
-                  controller: _tabController,
-                  indicatorColor: Colors.white,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.white70,
-                  tabs: const [
-                    Tab(text: 'Beneficiary'),
-                    Tab(text: 'Officer'),
-                  ],
-                ),
+                const Text('Add Beneficiary', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
-
-          // Forms
+          // Form
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildBeneficiaryForm(),
-                _buildOfficerForm(),
-              ],
-            ),
+            child: _buildBeneficiaryForm(),
           ),
         ],
       ),
@@ -235,6 +190,9 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> with Single
           _field('Pincode', _pincodeCtrl, '6-digit pincode',
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)]),
+          _field('Land Location *', _landLocationCtrl, 'Enter land location'),
+          _field('Land Area (sq ft) *', _landAreaCtrl, 'Enter land area',
+              keyboardType: TextInputType.number),
 
           const Divider(height: 32),
           _sectionHeader(Icons.currency_rupee, 'Loan Details'),
@@ -256,6 +214,21 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> with Single
             onChanged: (v) => setState(() => _loanPurpose = v ?? ''),
           ),
           const SizedBox(height: 16),
+          const Text('Assign Officer *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.gray700)),
+          const SizedBox(height: 8),
+          _isLoadingOfficers
+              ? const Center(child: CircularProgressIndicator())
+              : DropdownButtonFormField<String>(
+                  value: _assignedOfficer.isEmpty ? null : _assignedOfficer,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    filled: true, fillColor: Colors.white,
+                  ),
+                  hint: const Text('Select field officer'),
+                  items: _officers.map((o) => DropdownMenuItem(value: o['username'] as String, child: Text(o['name'] as String))).toList(),
+                  onChanged: (v) => setState(() => _assignedOfficer = v ?? ''),
+                ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(child: _datePicker('Disbursement Date *', _disbursementDate, () => _pickDate(true))),
@@ -267,39 +240,6 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> with Single
           const SizedBox(height: 32),
           _buildSubmitButton('Save Beneficiary', _isBenValid, _saveBeneficiary),
           const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOfficerForm() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader(Icons.admin_panel_settings, 'Officer Authentication'),
-          const SizedBox(height: 16),
-          _field('Username *', _offUsernameCtrl, 'Enter unique username (e.g. OFF001)'),
-          _field('Password *', _offPasswordCtrl, 'Enter password'),
-          const SizedBox(height: 16),
-          const Text('Role *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.gray700)),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _offRole,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              filled: true, fillColor: Colors.white,
-            ),
-            items: const [
-              DropdownMenuItem(value: 'field', child: Text('Field Officer (Upload Reviewer)')),
-              DropdownMenuItem(value: 'admin', child: Text('System Admin')),
-            ],
-            onChanged: (v) => setState(() => _offRole = v ?? 'field'),
-          ),
-          
-          const SizedBox(height: 32),
-          _buildSubmitButton('Save Officer', _isOffValid, _saveOfficer),
         ],
       ),
     );

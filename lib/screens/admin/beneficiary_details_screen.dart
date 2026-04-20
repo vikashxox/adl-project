@@ -12,7 +12,8 @@ class BeneficiaryDetailsScreen extends StatelessWidget {
   }
 
   Color get _statusColor {
-    switch (beneficiary['loanStatus']) {
+    final status = beneficiary['loanStatus'] ?? beneficiary['status'] ?? 'pending';
+    switch (status) {
       case 'approved': return AppTheme.green600;
       case 'pending': return AppTheme.amber600;
       case 'rejected': return AppTheme.red600;
@@ -21,7 +22,8 @@ class BeneficiaryDetailsScreen extends StatelessWidget {
   }
 
   Color get _statusBg {
-    switch (beneficiary['loanStatus']) {
+    final status = beneficiary['loanStatus'] ?? beneficiary['status'] ?? 'pending';
+    switch (status) {
       case 'approved': return const Color(0xFFF0FDF4);
       case 'pending': return const Color(0xFFFFFBEB);
       case 'rejected': return const Color(0xFFFEF2F2);
@@ -31,13 +33,14 @@ class BeneficiaryDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = beneficiary['name'] as String;
-    final mobile = beneficiary['mobile'] as String;
-    final address = beneficiary['address'] as String;
-    final loanId = beneficiary['loanId'] as String;
-    final loanAmount = beneficiary['loanAmount'] as int;
-    final loanStatus = beneficiary['loanStatus'] as String;
-    final loanPurpose = beneficiary['loanPurpose'] as String;
+    final name = beneficiary['name'] as String? ?? 'Unknown';
+    final mobile = (beneficiary['mobile'] ?? beneficiary['phone']) as String? ?? 'N/A';
+    final address = beneficiary['address'] as String? ?? 'N/A';
+    final loanId = beneficiary['loanId'] as String? ?? 'N/A';
+    final loanAmountRaw = beneficiary['loanAmount'] ?? 0;
+    final loanAmount = loanAmountRaw is int ? loanAmountRaw : int.tryParse(loanAmountRaw.toString()) ?? 0;
+    final loanStatus = (beneficiary['loanStatus'] ?? beneficiary['status']) as String? ?? 'pending';
+    final loanPurpose = beneficiary['loanPurpose'] as String? ?? 'N/A';
 
     return Scaffold(
       backgroundColor: AppTheme.gray50,

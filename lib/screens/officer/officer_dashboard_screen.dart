@@ -13,12 +13,7 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
   String _activeFilter = 'pending';
   final _searchController = TextEditingController();
 
-  final _verifications = [
-    {'id': '1', 'name': 'Ramesh Kumar', 'loanId': 'LN2026001234', 'amount': 250000, 'purpose': 'Agricultural Equipment', 'date': '28 Feb 2026', 'aiConfidence': 92, 'status': 'pending'},
-    {'id': '2', 'name': 'Sunita Devi', 'loanId': 'LN2026001189', 'amount': 150000, 'purpose': 'Dairy Equipment', 'date': '27 Feb 2026', 'aiConfidence': 45, 'status': 'flagged'},
-    {'id': '3', 'name': 'Rajesh Sharma', 'loanId': 'LN2026001156', 'amount': 300000, 'purpose': 'Warehouse Construction', 'date': '26 Feb 2026', 'aiConfidence': 95, 'status': 'pending'},
-    {'id': '4', 'name': 'Lakshmi Iyer', 'loanId': 'LN2026001102', 'amount': 180000, 'purpose': 'Food Processing Unit', 'date': '25 Feb 2026', 'aiConfidence': 88, 'status': 'approved'},
-  ];
+  final List<Map<String, dynamic>> _verifications = [];
 
   List<Map<String, dynamic>> get _filtered {
     return _verifications.where((v) {

@@ -53,8 +53,8 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
     super.initState();
     _availableLoans = [
       {
-        'id': AppSession.loanId ?? 'L-UNKNOWN',
-        'name': AppSession.loanPurpose ?? 'Unknown Purpose'
+        'id': AppSession.loanId ?? 'N/A',
+        'name': AppSession.loanPurpose ?? 'N/A'
       }
     ];
     _selectedLoanId = _availableLoans.first['id'];
