@@ -16,13 +16,23 @@ class CloudinaryService {
   static const String _defaultUploadPreset = 'loan_upload';
 
   String get _cloudName {
-    final e = dotenv.env['CLOUDINARY_CLOUD_NAME']?.trim();
-    return (e != null && e.isNotEmpty) ? e : _defaultCloudName;
+    try {
+      if (!dotenv.isInitialized) return _defaultCloudName;
+      final e = dotenv.env['CLOUDINARY_CLOUD_NAME']?.trim();
+      return (e != null && e.isNotEmpty) ? e : _defaultCloudName;
+    } catch (_) {
+      return _defaultCloudName;
+    }
   }
 
   String get _uploadPreset {
-    final e = dotenv.env['CLOUDINARY_UPLOAD_PRESET']?.trim();
-    return (e != null && e.isNotEmpty) ? e : _defaultUploadPreset;
+    try {
+      if (!dotenv.isInitialized) return _defaultUploadPreset;
+      final e = dotenv.env['CLOUDINARY_UPLOAD_PRESET']?.trim();
+      return (e != null && e.isNotEmpty) ? e : _defaultUploadPreset;
+    } catch (_) {
+      return _defaultUploadPreset;
+    }
   }
 
   String get _uploadUrl =>
@@ -70,8 +80,16 @@ class CloudinaryService {
       return secureUrl;
     } else {
       print('ERROR: ${response.statusCode} → ${response.body}');
-      throw CloudinaryUploadException(
-          'Upload failed (${response.statusCode}): ${response.body}');
+      String detailedError = response.body;
+      try {
+        final parsedJson = jsonDecode(response.body);
+        if (parsedJson['error'] != null && parsedJson['error']['message'] != null) {
+          detailedError = parsedJson['error']['message'];
+        }
+      } catch (_) {
+        // Fallback to raw body if JSON parsing fails
+      }
+      throw CloudinaryUploadException(detailedError);
     }
   }
 }
@@ -82,5 +100,5 @@ class CloudinaryUploadException implements Exception {
   const CloudinaryUploadException(this.message);
 
   @override
-  String toString() => 'CloudinaryUploadException: $message';
+  String toString() => message;
 }

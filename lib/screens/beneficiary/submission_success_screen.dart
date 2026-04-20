@@ -134,8 +134,7 @@ class SubmissionSuccessScreen extends StatelessWidget {
                     ],
                   ),
                   child: ElevatedButton.icon(
-                    onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                        context, '/beneficiary-dashboard', (r) => false),
+                    onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.home, color: Colors.white),
                     label: const Text('Return to Dashboard', style: TextStyle(color: Colors.white)),
                     style: AppTheme.elevatedOnGradient(),
@@ -143,7 +142,7 @@ class SubmissionSuccessScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: () => Navigator.pushReplacementNamed(context, '/upload-proof'),
+                  onPressed: () => Navigator.pushReplacementNamed(context, '/gps-camera-upload'),
                   style: AppTheme.elevatedSecondaryOutlined(),
                   child: const Text('Submit Another Proof'),
                 ),

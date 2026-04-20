@@ -34,6 +34,7 @@ class _UploadExampleState extends State<UploadExample> {
       );
 
       if (picked != null) {
+        if (!mounted) return;
         setState(() {
           _image = File(picked.path);
           _errorMessage = null;
@@ -43,6 +44,7 @@ class _UploadExampleState extends State<UploadExample> {
         await _getLocation();
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _errorMessage = 'Failed to capture image: $e');
     }
   }
@@ -59,8 +61,10 @@ class _UploadExampleState extends State<UploadExample> {
         desiredAccuracy: LocationAccuracy.high,
       );
 
+      if (!mounted) return;
       setState(() => _position = position);
     } catch (e) {
+      if (!mounted) return;
       setState(() => _errorMessage = 'Failed to get location: $e');
     }
   }
@@ -101,6 +105,7 @@ class _UploadExampleState extends State<UploadExample> {
       );
 
       if (success) {
+        if (!mounted) return;
         setState(() => _uploadedImageUrl = imageUrl);
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -112,14 +117,18 @@ class _UploadExampleState extends State<UploadExample> {
 
         print('🎉 Upload complete! Image URL: $imageUrl');
       } else {
+        if (!mounted) return;
         setState(() => _errorMessage = 'Failed to save to database');
       }
 
     } catch (e) {
       print('❌ Upload failed: $e');
+      if (!mounted) return;
       setState(() => _errorMessage = 'Upload failed: $e');
     } finally {
-      setState(() => _isUploading = false);
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
     }
   }
 

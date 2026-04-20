@@ -89,14 +89,17 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
     setState(() { _isFetchingLocation = true; _errorMessage = null; });
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!mounted) return null;
       if (!serviceEnabled) {
         setState(() => _errorMessage = 'Location services are disabled. Please enable GPS.');
         return null;
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
+      if (!mounted) return null;
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+        if (!mounted) return null;
         if (permission == LocationPermission.denied) {
           setState(() => _errorMessage = 'Location permission denied.');
           return null;
@@ -111,10 +114,10 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
         desiredAccuracy: LocationAccuracy.high,
       );
     } catch (e) {
-      setState(() => _errorMessage = 'Could not fetch location: $e');
+      if (mounted) setState(() => _errorMessage = 'Could not fetch location: $e');
       return null;
     } finally {
-      setState(() => _isFetchingLocation = false);
+      if (mounted) setState(() => _isFetchingLocation = false);
     }
   }
 
@@ -143,6 +146,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
       );
       if (picked == null) return;
 
+      if (!mounted) return;
       setState(() {
         _image = File(picked.path);
         _position = position;
@@ -150,6 +154,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
         _errorMessage = null;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _errorMessage = 'Could not pick image: $e');
     }
   }
@@ -213,6 +218,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
 
     } catch (e) {
       print('❌ Offline save failed: $e');
+      if (!mounted) return;
       setState(() => _errorMessage = 'Could not save offline: $e');
     }
   }
@@ -239,14 +245,19 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
       final insertedId = await _storage.insertUpload(uploadRecord);
       await _storage.markAsUploaded(insertedId);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Photo uploaded successfully!'), backgroundColor: AppTheme.green600),
-        );
-        Navigator.pushReplacementNamed(context, '/submission-success');
-      }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Photo uploaded successfully!'), backgroundColor: AppTheme.green600),
+      );
+      Navigator.pushReplacementNamed(context, '/submission-success');
     } catch (e) {
+      print('❌ Local save failed: $e');
+      if (!mounted) return;
       setState(() => _errorMessage = 'Local save failed: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Local save failed: $e'), backgroundColor: AppTheme.red600),
+      );
     }
   }
 
@@ -744,9 +755,12 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
                   }
                 } catch (e) {
                   print('❌ Upload flow ERROR: $e');
-                  print('❌ Error type: ${e.runtimeType}');
                   print('❌ Stack trace: ${StackTrace.current}');
-                  if (mounted) setState(() => _errorMessage = 'Upload failed: $e');
+                  if (!mounted) return;
+                  setState(() => _errorMessage = 'Upload failed: $e');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Upload failed: $e'), backgroundColor: AppTheme.red600),
+                  );
                 } finally {
                   if (mounted) setState(() => _isUploading = false);
                 }

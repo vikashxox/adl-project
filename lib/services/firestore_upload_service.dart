@@ -58,7 +58,7 @@ class FirestoreUploadService {
     } catch (e, st) {
       print('❌ uploadLoanProof failed: $e');
       print('$st');
-      return null;
+      rethrow;
     }
   }
 
