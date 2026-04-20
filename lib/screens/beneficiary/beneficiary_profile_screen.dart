@@ -14,6 +14,7 @@ class BeneficiaryProfileScreen extends StatefulWidget {
 
 class _BeneficiaryProfileScreenState extends State<BeneficiaryProfileScreen> {
   Map<String, dynamic>? _profile;
+  List<Map<String, dynamic>> _loans = [];
   bool _isLoading = true;
 
   @override
@@ -33,14 +34,22 @@ class _BeneficiaryProfileScreenState extends State<BeneficiaryProfileScreen> {
       final snap = await FirebaseFirestore.instance
           .collection('beneficiaries')
           .where('phone', isEqualTo: phone)
-          .limit(1)
           .get();
 
       if (snap.docs.isNotEmpty) {
-        if (mounted) setState(() => _profile = snap.docs.first.data());
+        if (mounted) {
+          setState(() {
+            _loans = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+            _profile = _loans.first;
+          });
+        }
       }
     } catch (_) {}
     if (mounted) setState(() => _isLoading = false);
+  }
+  
+  String _formatAmount(int amt) {
+    return amt.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
   }
 
   @override
@@ -52,10 +61,16 @@ class _BeneficiaryProfileScreenState extends State<BeneficiaryProfileScreen> {
     final name = _profile?['name'] ?? AppSession.beneficiaryName ?? 'N/A';
     final mobile = _profile?['phone'] ?? AppSession.beneficiaryPhone ?? 'N/A';
     final address = _profile?['address'] ?? 'N/A';
-    final loanCount = '1'; // Currently singular per login
+    
+    final loanCount = _loans.length.toString();
+    final totalAmount = _loans.fold<int>(0, (sum, l) {
+      final amt = l['loanAmount'] ?? 0;
+      if (amt is int) return sum + amt;
+      return sum + (int.tryParse(amt.toString()) ?? 0);
+    });
+
     final email = 'N/A';
     final aadhar = 'N/A';
-    final amount = _profile?['loanAmount']?.toString() ?? AppSession.loanAmount?.toString() ?? '0';
 
     return Scaffold(
       backgroundColor: AppTheme.gray50,
@@ -135,16 +150,65 @@ class _BeneficiaryProfileScreenState extends State<BeneficiaryProfileScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Loan Stats
+                  // Loan Stats Summary
                   _buildCard(
                     title: 'Loan Summary',
                     children: [
                       _buildInfoTile(Icons.account_balance, 'Active Loans', loanCount),
-                      _buildInfoTile(Icons.currency_rupee, 'Total Amount', '₹$amount'),
-                      _buildInfoTile(Icons.check_circle_outline, 'Repaid', '₹0'),
+                      _buildInfoTile(Icons.currency_rupee, 'Total Amount', '₹${_formatAmount(totalAmount)}'),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+
+                  // Individual Loans List
+                  if (_loans.isNotEmpty) ...[
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('My Active Loans', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.gray800)),
+                    ),
+                    const SizedBox(height: 12),
+                    ..._loans.map((loan) {
+                      final status = loan['status'] ?? loan['loanStatus'] ?? 'pending';
+                      final lAmountRaw = loan['loanAmount'] ?? 0;
+                      final lAmount = lAmountRaw is int ? lAmountRaw : int.tryParse(lAmountRaw.toString()) ?? 0;
+                      final isApproved = status == 'approved';
+                      
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 3))],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('${loan['loanId'] ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.gray800, fontSize: 14)),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(color: isApproved ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(10)),
+                                  child: Text((status as String).toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isApproved ? AppTheme.green600 : AppTheme.amber600)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            const Divider(height: 1),
+                            const SizedBox(height: 8),
+                            _buildMiniRow(Icons.currency_rupee, 'Amount: ₹${_formatAmount(lAmount)}'),
+                            const SizedBox(height: 4),
+                            _buildMiniRow(Icons.gps_fixed, 'Purpose: ${loan['loanPurpose'] ?? 'N/A'}'),
+                            const SizedBox(height: 4),
+                            _buildMiniRow(Icons.person, 'Officer: ${loan['assignedOfficer'] ?? 'Unassigned'}'),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    const SizedBox(height: 24),
+                  ],
 
                   // Logout
                   OutlinedButton(
@@ -159,6 +223,16 @@ class _BeneficiaryProfileScreenState extends State<BeneficiaryProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMiniRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: AppTheme.gray500),
+        const SizedBox(width: 6),
+        Text(text, style: const TextStyle(fontSize: 13, color: AppTheme.gray700)),
+      ],
     );
   }
 

@@ -137,6 +137,9 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    print('📷 User initiated image capture/picking from $source');
+    
+    if (!mounted) return;
     if (_selectedLoanId == null) {
       setState(() => _errorMessage = 'Please select a loan before capturing.');
       return;
@@ -145,20 +148,38 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
     final position = await _fetchLocation();
 
     try {
+      print('📸 Opening native image picker...');
       final picked = await _picker.pickImage(
         source: source,
-        imageQuality: 90,
+        imageQuality: 60, // Limit quality to save memory
+        maxWidth: 1024,   // Critical: Limit dimensions to prevent "Lost connection to device" Out Of Memory when returning from camera
+        maxHeight: 1024,
       );
-      if (picked == null) return;
+      
+      print('📸 Image picker returned. Validating response...');
+      
+      if (!mounted) {
+        print('⚠️ Widget no longer mounted after camera returned.');
+        return;
+      }
+      
+      if (picked == null) {
+        print('⚠️ Image picking cancelled by user.');
+        return;
+      }
 
-      if (!mounted) return;
+      print('✅ Image captured successfully at: ${picked.path}');
+
       setState(() {
         _image = File(picked.path);
         _position = position;
         _timestamp = DateTime.now();
         _errorMessage = null;
       });
-    } catch (e) {
+      print('✅ Widget state updated with new image.');
+    } catch (e, st) {
+      print('❌ Error picking image: $e');
+      print('❌ Stack trace: $st');
       if (!mounted) return;
       setState(() => _errorMessage = 'Could not pick image: $e');
     }
@@ -181,11 +202,11 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
   /// NEVER stores local file path to Firestore — only the Cloudinary URL ever
   /// reaches Firestore, handled by [UploadService] during sync.
   Future<void> _saveOfflineRecord() async {
-    if (_image == null || _selectedLoanId == null || _position == null || _timestamp == null) return;
+    if (_image == null || _selectedLoanId == null) return;
 
     try {
       print('📴 Saving offline record to SQLite...');
-      final loanName = _availableLoans.firstWhere((l) => l['id'] == _selectedLoanId)['name']!;
+      final loanName = _availableLoans.firstWhere((l) => l['id'] == _selectedLoanId, orElse: () => {'id': _selectedLoanId!, 'name': 'Unknown Loan'})['name'] ?? 'Unknown Loan';
       final localImagePath = await _saveImageLocally(_image!);
 
       final uploadRecord = PendingUpload(
@@ -193,9 +214,9 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
         localPath: localImagePath,  // ← fallback for offline thumbnail display
         loanId: _selectedLoanId!,
         loanName: loanName,
-        latitude: _position!.latitude,
-        longitude: _position!.longitude,
-        timestamp: _timestamp!.toIso8601String(),
+        latitude: _position?.latitude ?? 0.0,
+        longitude: _position?.longitude ?? 0.0,
+        timestamp: _timestamp?.toIso8601String() ?? DateTime.now().toIso8601String(),
         status: 'pending',
       );
 
@@ -203,26 +224,27 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
       print('✅ Offline record saved to SQLite, id=$insertedId (status: pending)');
       print('ℹ️  ConnectivityService will upload when internet returns → Cloudinary URL → Firestore');
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Saved offline. Will auto-upload when internet returns.'),
-            backgroundColor: AppTheme.blue600,
-          ),
-        );
-      }
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Saved offline. Will auto-upload when internet returns.'),
+          backgroundColor: AppTheme.blue600,
+        ),
+      );
 
       // Reset capture state and reload queue
       setState(() {
         _image = null;
         _position = null;
         _timestamp = null;
-        _selectedLoanId = null;
+        // Keep _selectedLoanId selected to speed up next captures
       });
       await _loadUploads();
 
-    } catch (e) {
+    } catch (e, st) {
       print('❌ Offline save failed: $e');
+      print('❌ Stack trace: $st');
       if (!mounted) return;
       setState(() => _errorMessage = 'Could not save offline: $e');
     }
@@ -232,36 +254,53 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
   /// Saves a local copy marked as 'uploaded' (storing the Cloudinary URL)
   /// and navigates to success screen.
   Future<void> _processUploadWithUrl(String imageUrl) async {
-    if (_image == null || _selectedLoanId == null || _position == null || _timestamp == null) return;
+    print('🛠️ Step 4: Storing uploaded record locally...');
+    
+    if (_image == null || _selectedLoanId == null) {
+      print('❌ Verification failed: Image or Loan ID is null');
+      return;
+    }
+    
     try {
-      final loanName = _availableLoans.firstWhere((l) => l['id'] == _selectedLoanId)['name']!;
+      final loanName = _availableLoans.firstWhere((l) => l['id'] == _selectedLoanId, orElse: () => {'id': _selectedLoanId!, 'name': 'Unknown Loan'})['name'] ?? 'Unknown Loan';
       final localImagePath = await _saveImageLocally(_image!);
+
       // Store the Cloudinary URL in imagePath so the local queue can display it
       final uploadRecord = PendingUpload(
         imagePath: imageUrl,          // ← Cloudinary URL, NOT local file path
         localPath: localImagePath,    // ← kept for offline fallback preview
         loanId: _selectedLoanId!,
         loanName: loanName,
-        latitude: _position!.latitude,
-        longitude: _position!.longitude,
-        timestamp: _timestamp!.toIso8601String(),
+        latitude: _position?.latitude ?? 0.0,
+        longitude: _position?.longitude ?? 0.0,
+        timestamp: _timestamp?.toIso8601String() ?? DateTime.now().toIso8601String(),
         status: 'uploaded',
       );
+      
+      print('🛠️ Step 5: Marking record as uploaded in local SQLite DB...');
       final insertedId = await _storage.insertUpload(uploadRecord);
       await _storage.markAsUploaded(insertedId);
 
-      if (!mounted) return;
+      print('🛠️ Step 6: Handling UI completion and navigating to success screen...');
+      if (!mounted) {
+        print('⚠️ Widget not mounted, aborting navigation.');
+        return;
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Photo uploaded successfully!'), backgroundColor: AppTheme.green600),
+        const SnackBar(content: Text('Photo uploaded successfully!'), backgroundColor: AppTheme.green600, duration: Duration(seconds: 2)),
       );
+      
+      // Ensure navigation is safe
       Navigator.pushReplacementNamed(context, '/submission-success');
-    } catch (e) {
-      print('❌ Local save failed: $e');
+      print('✅ Navigation to /submission-success initiated.');
+    } catch (e, st) {
+      print('❌ Local save or processing failed: $e');
+      print('❌ Stack trace: $st');
       if (!mounted) return;
-      setState(() => _errorMessage = 'Local save failed: $e');
+      setState(() => _errorMessage = 'Local processing failed: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Local save failed: $e'), backgroundColor: AppTheme.red600),
+        SnackBar(content: Text('Verification during local save failed: $e'), backgroundColor: AppTheme.red600),
       );
     }
   }
@@ -732,43 +771,58 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
                 setState(() { _isUploading = true; _errorMessage = null; });
 
                 try {
+                  print('🛠️ Step 1: Initiating upload procedure...');
+                  
+                  // Ensure identity data is present
+                  final phone = AppSession.beneficiaryPhone;
+                  if (phone == null || phone.isEmpty) {
+                     throw Exception('Missing User Identity. Please log out and back in.');
+                  }
+
                   if (isOnline) {
-                    print('🌐 ONLINE: Cloudinary → Firestore (imageUrl only)…');
+                    print('🌐 ONLINE: Processing Cloudinary → Firestore pipeline...');
+                    print('📍 Validating data: Phone: $phone, LoanID: $_selectedLoanId');
 
                     // Single pipeline: upload file → secure_url → Firestore (no file.path)
+                    print('🛠️ Step 2: Uploading image to Cloudinary and creating Firestore document...');
                     final String? imageUrl = await _firestoreUpload.uploadLoanProof(
                       imageFile: _image!,
                       loanId: _selectedLoanId!,
-                      latitude: _position?.latitude ?? 0,
-                      longitude: _position?.longitude ?? 0,
-                      timestamp: (_timestamp ?? DateTime.now()).toIso8601String(),
-                      phone: AppSession.beneficiaryPhone,
+                      latitude: _position?.latitude ?? 0.0,
+                      longitude: _position?.longitude ?? 0.0,
+                      timestamp: _timestamp?.toIso8601String() ?? DateTime.now().toIso8601String(),
+                      phone: phone,
                     );
 
-                    if (imageUrl == null) {
-                      throw Exception('Upload failed: Cloudinary or Firestore returned no URL');
+                    print('🛠️ Step 3: Validating URL response...');
+                    if (imageUrl == null || imageUrl.trim().isEmpty) {
+                      throw Exception('Upload failed: Server validation error (secure_url is null/empty).');
                     }
 
-                    print('✅ Remote URL: $imageUrl');
+                    print('✅ Remote secure URL retrieved: $imageUrl');
 
                     await _processUploadWithUrl(imageUrl);
-                    print('🎉 COMPLETE: Upload flow finished successfully');
+                    print('🎉 COMPLETE: Online upload flow finished securely');
                   } else {
                     // ── Offline path: save to SQLite only, auto-sync will handle upload ──
-                    print('📴 OFFLINE: Saving to local queue for later sync...');
+                    print('📴 OFFLINE: User disconnected. Fallback to SQLite local queue...');
                     await _saveOfflineRecord();
-                    print('✅ Offline save completed — will sync to Cloudinary + Firestore when online');
+                    print('✅ Offline fallback completed');
                   }
-                } catch (e) {
-                  print('❌ Upload flow ERROR: $e');
-                  print('❌ Stack trace: ${StackTrace.current}');
-                  if (!mounted) return;
+                } catch (e, st) {
+                  print('❌ Upload flow RUNTIME ERROR: $e');
+                  print('❌ Stack trace: $st');
+                  if (!mounted) {
+                     print('⚠️ Widget disposed before error could be shown.');
+                     return;
+                  }
                   setState(() => _errorMessage = 'Upload failed: $e');
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Upload failed: $e'), backgroundColor: AppTheme.red600),
+                    SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.red600, duration: const Duration(seconds: 4)),
                   );
                 } finally {
                   if (mounted) setState(() => _isUploading = false);
+                  print('🏁 END: Upload transaction finalized.');
                 }
               },
         icon: _isUploading
