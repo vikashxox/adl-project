@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
 
 class AdminDataEntryScreen extends StatefulWidget {
@@ -9,7 +10,10 @@ class AdminDataEntryScreen extends StatefulWidget {
   State<AdminDataEntryScreen> createState() => _AdminDataEntryScreenState();
 }
 
-class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> {
+class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  // --- BENEFICIARY FIELDS ---
   final _nameCtrl = TextEditingController();
   final _mobileCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
@@ -24,24 +28,44 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> {
   String _assignedOfficer = '';
   DateTime? _disbursementDate;
   DateTime? _deadline;
-  bool _showSuccess = false;
 
-  bool get _isFormValid =>
+  // --- OFFICER FIELDS ---
+  final _offUsernameCtrl = TextEditingController();
+  final _offPasswordCtrl = TextEditingController();
+  String _offRole = 'field'; // 'field' or 'admin'
+
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _nameCtrl.dispose(); _mobileCtrl.dispose(); _addressCtrl.dispose();
+    _villageCtrl.dispose(); _districtCtrl.dispose(); _stateCtrl.dispose();
+    _pincodeCtrl.dispose(); _landLocationCtrl.dispose(); _landAreaCtrl.dispose();
+    _loanAmountCtrl.dispose(); _offUsernameCtrl.dispose(); _offPasswordCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _isBenValid =>
       _nameCtrl.text.isNotEmpty &&
       _mobileCtrl.text.length == 10 &&
       _addressCtrl.text.isNotEmpty &&
-      _villageCtrl.text.isNotEmpty &&
-      _districtCtrl.text.isNotEmpty &&
-      _stateCtrl.text.isNotEmpty &&
-      _pincodeCtrl.text.length == 6 &&
-      _landLocationCtrl.text.isNotEmpty &&
       _loanAmountCtrl.text.isNotEmpty &&
       _loanPurpose.isNotEmpty &&
-      _assignedOfficer.isNotEmpty &&
       _disbursementDate != null &&
       _deadline != null;
 
-  void _resetForm() {
+  bool get _isOffValid =>
+      _offUsernameCtrl.text.isNotEmpty &&
+      _offPasswordCtrl.text.isNotEmpty;
+
+  void _resetBenForm() {
     _nameCtrl.clear(); _mobileCtrl.clear(); _addressCtrl.clear();
     _villageCtrl.clear(); _districtCtrl.clear(); _stateCtrl.clear();
     _pincodeCtrl.clear(); _landLocationCtrl.clear(); _landAreaCtrl.clear();
@@ -49,14 +73,76 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> {
     setState(() { _loanPurpose = ''; _assignedOfficer = ''; _disbursementDate = null; _deadline = null; });
   }
 
-  void _handleSubmit() {
-    setState(() => _showSuccess = true);
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() => _showSuccess = false);
-        _resetForm();
-      }
-    });
+  void _resetOffForm() {
+    _offUsernameCtrl.clear();
+    _offPasswordCtrl.clear();
+    setState(() { _offRole = 'field'; });
+  }
+
+  Future<void> _saveBeneficiary() async {
+    setState(() => _isSaving = true);
+    try {
+      final loanId = 'LN${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+      
+      await FirebaseFirestore.instance.collection('beneficiaries').add({
+        'name': _nameCtrl.text.trim(),
+        'phone': _mobileCtrl.text.trim(),
+        'address': _addressCtrl.text.trim(),
+        'village': _villageCtrl.text.trim(),
+        'district': _districtCtrl.text.trim(),
+        'state': _stateCtrl.text.trim(),
+        'pincode': _pincodeCtrl.text.trim(),
+        'landLocation': _landLocationCtrl.text.trim(),
+        'landArea': _landAreaCtrl.text.trim(),
+        'loanAmount': int.tryParse(_loanAmountCtrl.text) ?? 0,
+        'loanPurpose': _loanPurpose,
+        'assignedOfficer': _assignedOfficer,
+        'disbursedDate': _disbursementDate!.toIso8601String(),
+        'deadline': _deadline!.toIso8601String(),
+        'loanId': loanId,
+        'status': 'pending',
+        'progress': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Beneficiary Added Successfully!'), backgroundColor: Colors.green),
+      );
+      _resetBenForm();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _saveOfficer() async {
+    setState(() => _isSaving = true);
+    try {
+      await FirebaseFirestore.instance.collection('officers').add({
+        'username': _offUsernameCtrl.text.trim(),
+        'password': _offPasswordCtrl.text.trim(),
+        'role': _offRole,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Officer Added Successfully!'), backgroundColor: Colors.green),
+      );
+      _resetOffForm();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _pickDate(bool isDisbursement) async {
@@ -80,211 +166,49 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> {
   }
 
   @override
-  void dispose() {
-    for (final c in [_nameCtrl, _mobileCtrl, _addressCtrl, _villageCtrl, _districtCtrl, _stateCtrl, _pincodeCtrl, _landLocationCtrl, _landAreaCtrl, _loanAmountCtrl]) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.gray50,
       body: Column(
         children: [
           // Header
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 60, 16, 24),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF7C3AED), Color(0xFF9333EA)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 50, 16, 0),
+            decoration: const BoxDecoration(gradient: AppGradients.purpleHeader),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextButton.icon(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.chevron_left, color: Colors.white),
-                  label: const Text('Back to Dashboard', style: TextStyle(color: Colors.white)),
-                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const Text('Admin Registry', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                const Text('Admin Data Entry',
-                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 16),
-                Text('Add new beneficiary & loan details',
-                    style: TextStyle(color: Colors.purple[100], fontSize: 13)),
+                TabBar(
+                  controller: _tabController,
+                  indicatorColor: Colors.white,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white70,
+                  tabs: const [
+                    Tab(text: 'Beneficiary'),
+                    Tab(text: 'Officer'),
+                  ],
+                ),
               ],
             ),
           ),
 
-          // Form
+          // Forms
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Success banner
-                  if (_showSuccess)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDF4),
-                        border: Border.all(color: const Color(0xFFBBF7D0)),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.check_circle, color: AppTheme.green600, size: 24),
-                          SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Beneficiary Added Successfully!',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF14532D))),
-                              Text('Loan record has been created',
-                                  style: TextStyle(fontSize: 11, color: Color(0xFF15803D))),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  // --- BENEFICIARY INFO ---
-                  _sectionHeader(Icons.person_add, 'Beneficiary Information'),
-                  const SizedBox(height: 16),
-                  _field('Full Name *', _nameCtrl, 'Enter beneficiary\'s full name'),
-                  _field('Mobile Number *', _mobileCtrl, '10-digit mobile number',
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)]),
-                  _field('Address *', _addressCtrl, 'Enter beneficiary\'s address'),
-                  _field('Village *', _villageCtrl, 'Enter beneficiary\'s village'),
-                  _field('District *', _districtCtrl, 'Enter beneficiary\'s district'),
-                  _field('State *', _stateCtrl, 'Enter beneficiary\'s state'),
-                  _field('Pincode *', _pincodeCtrl, '6-digit pincode',
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)]),
-                  _field('Land Location *', _landLocationCtrl, 'Enter land location'),
-                  _field('Land Area (sq. ft.)', _landAreaCtrl, 'Enter land area',
-                      keyboardType: TextInputType.number),
-
-                  const Divider(height: 32),
-
-                  // --- LOAN DETAILS ---
-                  _sectionHeader(Icons.currency_rupee, 'Loan Details'),
-                  const SizedBox(height: 16),
-                  _field('Loan Amount (₹) *', _loanAmountCtrl, 'Enter loan amount',
-                      keyboardType: TextInputType.number),
-                  const SizedBox(height: 16),
-                  const Text('Loan Purpose *',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.gray700)),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _loanPurpose.isEmpty ? null : _loanPurpose,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.gray200, width: 2)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.gray200, width: 2)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.purple600, width: 2)),
-                      filled: true, fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                    hint: const Text('Select purpose', style: TextStyle(fontSize: 13)),
-                    items: ['Agricultural Equipment', 'Dairy Equipment', 'Food Processing Unit', 'Warehouse Construction', 'Irrigation System', 'Farm Machinery', 'Livestock Purchase', 'Other']
-                        .map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13))))
-                        .toList(),
-                    onChanged: (v) => setState(() => _loanPurpose = v ?? ''),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(child: _datePicker('Disbursement Date *', _disbursementDate, () => _pickDate(true))),
-                      const SizedBox(width: 12),
-                      Expanded(child: _datePicker('Deadline *', _deadline, () => _pickDate(false))),
-                    ],
-                  ),
-
-                  const Divider(height: 32),
-
-                  // --- OFFICER ASSIGNMENT ---
-                  _sectionHeader(Icons.manage_accounts, 'Officer Assignment'),
-                  const SizedBox(height: 16),
-                  const Text('Assign to Officer *',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.gray700)),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _assignedOfficer.isEmpty ? null : _assignedOfficer,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.gray200, width: 2)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.gray200, width: 2)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.purple600, width: 2)),
-                      filled: true, fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                    hint: const Text('Select officer', style: TextStyle(fontSize: 13)),
-                    items: [
-                      'Officer Sharma (OFF001) - Delhi Region',
-                      'Officer Kumar (OFF002) - Delhi Region',
-                      'Officer Verma (OFF003) - Haryana Region',
-                      'Officer Singh (OFF004) - Haryana Region',
-                      'Officer Patel (OFF005) - UP Region',
-                    ].map((o) => DropdownMenuItem(value: o, child: Text(o, style: const TextStyle(fontSize: 12)))).toList(),
-                    onChanged: (v) => setState(() => _assignedOfficer = v ?? ''),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Notes
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAF5FF),
-                      border: Border.all(color: const Color(0xFFE9D5FF)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Note:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF581C87))),
-                        const SizedBox(height: 16),
-                        for (final note in [
-                          'Beneficiary will receive SMS notification',
-                          'Officer will be notified of new assignment',
-                          'Loan ID will be auto-generated',
-                          'Deadline should be 60-90 days from disbursement',
-                        ])
-                          Text('• $note', style: const TextStyle(fontSize: 11, color: Color(0xFF7E22CE), height: 1.7)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Submit
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: _isFormValid ? AppGradients.purpleHeader : null,
-                      color: _isFormValid ? null : AppTheme.gray200,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: _isFormValid
-                          ? [BoxShadow(color: AppTheme.purple600.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))]
-                          : null,
-                    ),
-                    child: ElevatedButton.icon(
-                      onPressed: _isFormValid ? _handleSubmit : null,
-                      icon: Icon(Icons.save, color: _isFormValid ? Colors.white : AppTheme.gray500),
-                      label: Text('Save Beneficiary',
-                          style: TextStyle(color: _isFormValid ? Colors.white : AppTheme.gray500)),
-                      style: AppTheme.elevatedOnGradient(),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildBeneficiaryForm(),
+                _buildOfficerForm(),
+              ],
             ),
           ),
         ],
@@ -292,12 +216,119 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> {
     );
   }
 
+  Widget _buildBeneficiaryForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(Icons.person_add, 'Beneficiary Information'),
+          const SizedBox(height: 16),
+          _field('Full Name *', _nameCtrl, 'Enter beneficiary full name'),
+          _field('Mobile Number *', _mobileCtrl, '10-digit mobile number',
+              keyboardType: TextInputType.phone,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)]),
+          _field('Address *', _addressCtrl, 'Enter address'),
+          _field('Village', _villageCtrl, 'Enter village'),
+          _field('District', _districtCtrl, 'Enter district'),
+          _field('State', _stateCtrl, 'Enter state'),
+          _field('Pincode', _pincodeCtrl, '6-digit pincode',
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)]),
+
+          const Divider(height: 32),
+          _sectionHeader(Icons.currency_rupee, 'Loan Details'),
+          const SizedBox(height: 16),
+          _field('Loan Amount (₹) *', _loanAmountCtrl, 'Enter loan amount',
+              keyboardType: TextInputType.number),
+          const SizedBox(height: 16),
+          const Text('Loan Purpose *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.gray700)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _loanPurpose.isEmpty ? null : _loanPurpose,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true, fillColor: Colors.white,
+            ),
+            hint: const Text('Select purpose'),
+            items: ['Agricultural Equipment', 'Dairy Equipment', 'Farm Machinery', 'Other']
+                .map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+            onChanged: (v) => setState(() => _loanPurpose = v ?? ''),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: _datePicker('Disbursement Date *', _disbursementDate, () => _pickDate(true))),
+              const SizedBox(width: 12),
+              Expanded(child: _datePicker('Deadline *', _deadline, () => _pickDate(false))),
+            ],
+          ),
+
+          const SizedBox(height: 32),
+          _buildSubmitButton('Save Beneficiary', _isBenValid, _saveBeneficiary),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfficerForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(Icons.admin_panel_settings, 'Officer Authentication'),
+          const SizedBox(height: 16),
+          _field('Username *', _offUsernameCtrl, 'Enter unique username (e.g. OFF001)'),
+          _field('Password *', _offPasswordCtrl, 'Enter password'),
+          const SizedBox(height: 16),
+          const Text('Role *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.gray700)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _offRole,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true, fillColor: Colors.white,
+            ),
+            items: const [
+              DropdownMenuItem(value: 'field', child: Text('Field Officer (Upload Reviewer)')),
+              DropdownMenuItem(value: 'admin', child: Text('System Admin')),
+            ],
+            onChanged: (v) => setState(() => _offRole = v ?? 'field'),
+          ),
+          
+          const SizedBox(height: 32),
+          _buildSubmitButton('Save Officer', _isOffValid, _saveOfficer),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton(String label, bool isValid, VoidCallback onTap) {
+    return Container(
+      width: double.infinity,
+      height: 50,
+      decoration: BoxDecoration(
+        color: isValid ? AppTheme.purple600 : AppTheme.gray300,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: _isSaving
+          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          : TextButton(
+              onPressed: isValid && !_isSaving ? onTap : null,
+              child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 16)),
+            ),
+    );
+  }
+
+  // UI Helpers
   Widget _sectionHeader(IconData icon, String title) {
     return Row(
       children: [
         Icon(icon, size: 20, color: AppTheme.purple600),
         const SizedBox(width: 8),
-        Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppTheme.gray800)),
+        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.gray800)),
       ],
     );
   }
@@ -312,7 +343,7 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.gray700)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 4),
           TextField(
             controller: ctrl,
             keyboardType: keyboardType,
@@ -320,11 +351,10 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> {
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(fontSize: 13),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.gray200, width: 2)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.purple600, width: 2)),
+              hintStyle: const TextStyle(fontSize: 13, color: AppTheme.gray400),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               filled: true, fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),
         ],
@@ -337,26 +367,23 @@ class _AdminDataEntryScreenState extends State<AdminDataEntryScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.gray700)),
-        const SizedBox(height: 16),
+        const SizedBox(height: 4),
         GestureDetector(
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: AppTheme.gray200, width: 2),
-              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.gray400),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
-                const Icon(Icons.calendar_today, size: 14, color: AppTheme.gray400),
+                const Icon(Icons.calendar_today, size: 14, color: AppTheme.gray500),
                 const SizedBox(width: 6),
                 Text(
                   _formatDate(date),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: date == null ? AppTheme.gray400 : AppTheme.gray800,
-                  ),
+                  style: TextStyle(fontSize: 12, color: date == null ? AppTheme.gray500 : AppTheme.gray800),
                 ),
               ],
             ),

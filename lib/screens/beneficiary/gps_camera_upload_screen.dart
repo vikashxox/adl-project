@@ -9,6 +9,7 @@ import '../../utils/app_theme.dart';
 import '../../services/connectivity_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/firestore_upload_service.dart';
+import '../../services/app_session.dart';
 
 
 /// GPS Camera Upload screen with:
@@ -27,11 +28,7 @@ class GpsCameraUploadScreen extends StatefulWidget {
 
 class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
   // ─── Loan Data ─────────────────────────────────────────────────────────────
-  final List<Map<String, String>> _availableLoans = [
-    {'id': 'L-1001', 'name': 'Kisan Credit Card (Dairy)'},
-    {'id': 'L-1002', 'name': 'MUDRA Shishu'},
-    {'id': 'L-1005', 'name': 'PM Svanidhi'},
-  ];
+  late final List<Map<String, String>> _availableLoans;
   String? _selectedLoanId;
 
   // ─── Capture State ─────────────────────────────────────────────────────────
@@ -54,6 +51,14 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
   @override
   void initState() {
     super.initState();
+    _availableLoans = [
+      {
+        'id': AppSession.loanId ?? 'L-UNKNOWN',
+        'name': AppSession.loanPurpose ?? 'Unknown Purpose'
+      }
+    ];
+    _selectedLoanId = _availableLoans.first['id'];
+    
     _loadUploads();
     // Listen for connectivity changes to update the UI in real-time
     _connectivity.addListener(_onConnectivityChanged);
@@ -737,6 +742,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
                       latitude: _position?.latitude ?? 0,
                       longitude: _position?.longitude ?? 0,
                       timestamp: (_timestamp ?? DateTime.now()).toIso8601String(),
+                      phone: AppSession.beneficiaryPhone,
                     );
 
                     if (imageUrl == null) {

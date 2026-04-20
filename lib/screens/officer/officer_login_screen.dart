@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
 import '../../services/app_session.dart';
 
@@ -13,6 +14,7 @@ class _OfficerLoginScreenState extends State<OfficerLoginScreen> {
   final _officerIdController = TextEditingController();
   final _passwordController = TextEditingController();
   String _officerType = 'field'; // 'field' or 'admin'
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -21,14 +23,39 @@ class _OfficerLoginScreenState extends State<OfficerLoginScreen> {
     super.dispose();
   }
 
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
     if (_officerIdController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
-      if (_officerType == 'admin') {
-        AppSession.setAdmin();
-        Navigator.pushReplacementNamed(context, '/admin-dashboard');
-      } else {
-        AppSession.setOfficer(_officerIdController.text);
-        Navigator.pushReplacementNamed(context, '/officer-dashboard');
+      setState(() => _isLoading = true);
+      try {
+        final query = await FirebaseFirestore.instance
+            .collection('officers')
+            .where('username', isEqualTo: _officerIdController.text.trim())
+            .where('password', isEqualTo: _passwordController.text.trim())
+            .where('role', isEqualTo: _officerType)
+            .limit(1)
+            .get();
+
+        if (!mounted) return;
+        if (query.docs.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invalid credentials or role mismatch.'), backgroundColor: Colors.red),
+          );
+        } else {
+          if (_officerType == 'admin') {
+            AppSession.setAdmin();
+            Navigator.pushReplacementNamed(context, '/admin-dashboard');
+          } else {
+            AppSession.setOfficer(_officerIdController.text);
+            Navigator.pushReplacementNamed(context, '/officer-dashboard');
+          }
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
@@ -162,14 +189,16 @@ class _OfficerLoginScreenState extends State<OfficerLoginScreen> {
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      gradient: _canSubmit ? AppGradients.greenHeader : null,
-                      color: _canSubmit ? null : AppTheme.gray200,
+                      gradient: _canSubmit && !_isLoading ? AppGradients.greenHeader : null,
+                      color: _canSubmit && !_isLoading ? null : AppTheme.gray200,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: ElevatedButton(
-                      onPressed: _canSubmit ? _handleSubmit : null,
+                      onPressed: _canSubmit && !_isLoading ? _handleSubmit : null,
                       style: AppTheme.elevatedOnGradient(),
-                      child: const Text('Secure Login'),
+                      child: _isLoading 
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('Secure Login'),
                     ),
                   ),
                   const SizedBox(height: 24),

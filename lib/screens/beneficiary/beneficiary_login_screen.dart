@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
 import '../../services/app_session.dart';
 
@@ -12,9 +13,11 @@ class BeneficiaryLoginScreen extends StatefulWidget {
 
 class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
   bool _isOtpStep = false;
+  bool _isLoading = false;
   final _mobileController = TextEditingController();
   final List<TextEditingController> _otpControllers = List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
+  DocumentSnapshot? _beneficiaryDoc;
 
   @override
   void dispose() {
@@ -24,9 +27,33 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
     super.dispose();
   }
 
-  void _handleMobileSubmit() {
+  Future<void> _handleMobileSubmit() async {
     if (_mobileController.text.length == 10) {
-      setState(() => _isOtpStep = true);
+      setState(() => _isLoading = true);
+      try {
+        final query = await FirebaseFirestore.instance
+            .collection('beneficiaries')
+            .where('phone', isEqualTo: _mobileController.text)
+            .limit(1)
+            .get();
+
+        if (!mounted) return;
+        if (query.docs.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Mobile number not found.'), backgroundColor: Colors.red),
+          );
+        } else {
+          _beneficiaryDoc = query.docs.first;
+          setState(() => _isOtpStep = true);
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -40,8 +67,18 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
 
   void _handleOtpSubmit() {
     final otp = _otpControllers.map((c) => c.text).join();
-    if (otp.length == 6) {
-      AppSession.setBeneficiary();
+    if (otp.length == 6 && _beneficiaryDoc != null) {
+      final data = _beneficiaryDoc!.data() as Map<String, dynamic>;
+      AppSession.setBeneficiaryData(
+        phone: data['phone'] ?? '',
+        name: data['name'] ?? 'Unknown Beneficiary',
+        lId: data['loanId'] ?? 'Unknown',
+        amount: data['loanAmount'] ?? 0,
+        purpose: data['loanPurpose'] ?? 'Unknown',
+        dDate: data['disbursedDate'] ?? '',
+        deadlineDate: data['deadline'] ?? '',
+        status: data['status'] ?? 'pending',
+      );
       Navigator.pushReplacementNamed(context, '/beneficiary-dashboard');
     }
   }
@@ -160,14 +197,16 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            gradient: _mobileController.text.length == 10 ? AppGradients.blueHeader : null,
-            color: _mobileController.text.length == 10 ? null : AppTheme.gray200,
+            gradient: _mobileController.text.length == 10 && !_isLoading ? AppGradients.blueHeader : null,
+            color: _mobileController.text.length == 10 && !_isLoading ? null : AppTheme.gray200,
             borderRadius: BorderRadius.circular(12),
           ),
           child: ElevatedButton(
-            onPressed: _mobileController.text.length == 10 ? _handleMobileSubmit : null,
+            onPressed: _mobileController.text.length == 10 && !_isLoading ? _handleMobileSubmit : null,
             style: AppTheme.elevatedOnGradient(),
-            child: const Text('Send OTP'),
+            child: _isLoading 
+              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : const Text('Send OTP'),
           ),
         ),
       ],

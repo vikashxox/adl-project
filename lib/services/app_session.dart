@@ -11,6 +11,16 @@ class AppSession {
 
   static AppRole _role = AppRole.beneficiary;
   static String? _officerId;
+  
+  // Beneficiary specific global state
+  static String? beneficiaryPhone;
+  static String? beneficiaryName;
+  static String? loanId;
+  static int? loanAmount;
+  static String? loanPurpose;
+  static String? disbursedDate;
+  static String? deadline;
+  static String? loanStatus;
 
   static AppRole get role => _role;
   static String? get officerId => _officerId;
@@ -21,9 +31,26 @@ class AppSession {
       _officerId != null &&
       _officerId!.trim().isNotEmpty;
 
-  static void setBeneficiary() {
+  static void setBeneficiaryData({
+    required String phone,
+    required String name,
+    required String lId,
+    required int amount,
+    required String purpose,
+    required String dDate,
+    required String deadlineDate,
+    required String status,
+  }) {
     _role = AppRole.beneficiary;
     _officerId = null;
+    beneficiaryPhone = phone;
+    beneficiaryName = name;
+    loanId = lId;
+    loanAmount = amount;
+    loanPurpose = purpose;
+    disbursedDate = dDate;
+    deadline = deadlineDate;
+    loanStatus = status;
   }
 
   static void setOfficer(String id) {
@@ -40,5 +67,13 @@ class AppSession {
   static void clear() {
     _role = AppRole.beneficiary;
     _officerId = null;
+    beneficiaryPhone = null;
+    beneficiaryName = null;
+    loanId = null;
+    loanAmount = null;
+    loanPurpose = null;
+    disbursedDate = null;
+    deadline = null;
+    loanStatus = null;
   }
 }

@@ -17,7 +17,7 @@ class UploadService {
     required double latitude,
     required double longitude,
     required String timestamp,
-    String? userId,
+    String? phone,
   }) {
     return _firestoreUpload.uploadLoanProof(
       imageFile: imageFile,
@@ -25,7 +25,7 @@ class UploadService {
       latitude: latitude,
       longitude: longitude,
       timestamp: timestamp,
-      userId: userId,
+      phone: phone,
     );
   }
 }

@@ -4,6 +4,7 @@ import '../../services/storage_service.dart';
 import '../../services/connectivity_service.dart';
 import 'loan_details_screen.dart';
 import 'beneficiary_profile_screen.dart';
+import '../../services/app_session.dart';
 
 /// Beneficiary Dashboard — shows loan summary, status, action buttons,
 /// pending uploads badge, and timeline.
@@ -51,15 +52,15 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    const loanData = (
-      id: 'LN2026001234',
-      name: 'Ramesh Kumar',
-      amount: 250000,
-      purpose: 'Agricultural Equipment - Tractor Purchase',
-      disbursedDate: '15 Jan 2026',
-      deadline: '15 Apr 2026',
-      status: 'pending',
-      progress: 40,
+    final loanData = (
+      id: AppSession.loanId ?? 'LN2026000000',
+      name: AppSession.beneficiaryName ?? 'Guest User',
+      amount: AppSession.loanAmount ?? 0,
+      purpose: AppSession.loanPurpose ?? 'Unknown Purpose',
+      disbursedDate: _formatIsoDate(AppSession.disbursedDate),
+      deadline: _formatIsoDate(AppSession.deadline),
+      status: AppSession.loanStatus ?? 'pending',
+      progress: 40, // Static for now, could be derived from status
     );
 
     return Scaffold(
@@ -567,5 +568,15 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (m) => '${m[1]},',
     );
+  }
+
+  String _formatIsoDate(String? isoString) {
+    if (isoString == null || isoString.isEmpty) return 'N/A';
+    try {
+      final d = DateTime.parse(isoString);
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } catch (e) {
+      return isoString;
+    }
   }
 }

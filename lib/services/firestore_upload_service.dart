@@ -23,7 +23,7 @@ class FirestoreUploadService {
     required double latitude,
     required double longitude,
     required String timestamp,
-    String? userId,
+    String? phone,
   }) async {
     try {
       print('🚀 FirestoreUploadService.uploadLoanProof: start');
@@ -50,7 +50,7 @@ class FirestoreUploadService {
             latitude: latitude,
             longitude: longitude,
             timestamp: timestamp,
-            userId: userId ?? 'anonymous',
+            phone: phone ?? 'anonymous',
           ));
 
       print('✅ Firestore document added with imageUrl only');
@@ -75,7 +75,7 @@ class FirestoreUploadService {
     required double latitude,
     required double longitude,
     required String timestamp,
-    required String userId,
+    required String phone,
   }) {
     return {
       'imageUrl': imageUrl,
@@ -83,7 +83,7 @@ class FirestoreUploadService {
       'latitude': latitude,
       'longitude': longitude,
       'timestamp': timestamp,
-      'userId': userId,
+      'phone': phone,
       'role': 'beneficiary',
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
@@ -98,7 +98,7 @@ class FirestoreUploadService {
     required double latitude,
     required double longitude,
     required String timestamp,
-    String? userId,
+    String? phone,
   }) async {
     try {
       if (!_isValidRemoteImageUrl(imageUrl)) {
@@ -112,7 +112,7 @@ class FirestoreUploadService {
             latitude: latitude,
             longitude: longitude,
             timestamp: timestamp,
-            userId: userId ?? 'anonymous',
+            phone: phone ?? 'anonymous',
           ));
 
       print('✅ Upload record saved to Firestore (imageUrl only)');
