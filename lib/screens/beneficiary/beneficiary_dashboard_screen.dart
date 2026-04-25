@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 import '../../services/storage_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/connectivity_service.dart';
 import 'loan_details_screen.dart';
 import 'beneficiary_profile_screen.dart';
@@ -52,16 +53,7 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final loanData = (
-      id: AppSession.loanId ?? 'N/A',
-      name: AppSession.beneficiaryName ?? 'Unknown User',
-      amount: AppSession.loanAmount ?? 0,
-      purpose: AppSession.loanPurpose ?? 'N/A',
-      disbursedDate: _formatIsoDate(AppSession.disbursedDate),
-      deadline: _formatIsoDate(AppSession.deadline),
-      status: AppSession.loanStatus ?? 'pending',
-      progress: 0, 
-    );
+    final beneficiaryName = AppSession.beneficiaryName ?? 'Unknown User';
 
     return Scaffold(
       backgroundColor: AppTheme.gray50,
@@ -91,7 +83,7 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Welcome back', style: TextStyle(color: Colors.blue[100], fontSize: 11)),
-                      Text(loanData.name,
+                      Text(beneficiaryName,
                           style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w500)),
                     ],
                   ),
@@ -139,117 +131,172 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // Loan Summary
-                  GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => LoanDetailsScreen(
-                          loanId: loanData.id,
-                          name: loanData.name,
-                          amount: loanData.amount,
-                          status: loanData.status,
-                          disbursedDate: loanData.disbursedDate,
-                          purpose: loanData.purpose,
-                          deadline: loanData.deadline,
-                          progress: loanData.progress,
-                        ),
-                      ),
-                    ),
-                    child: _buildCard(
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Loan Summary',
-                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppTheme.gray800)),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text('ID: ${loanData.id}',
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.gray500)),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.chevron_right, size: 16, color: AppTheme.gray400),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildInfoItem(
-                                  icon: Icons.currency_rupee,
-                                  label: 'Loan Amount',
-                                  value: '₹${_formatAmount(loanData.amount)}',
-                                  valueSize: 20,
-                                ),
-                              ),
-                              Expanded(
-                                child: _buildInfoItem(
-                                  icon: Icons.calendar_today,
-                                  label: 'Deadline',
-                                  value: loanData.deadline,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 24),
-                          _buildInfoItem(
-                            icon: Icons.gps_fixed,
-                            label: 'Purpose',
-                            value: loanData.purpose,
-                            fullWidth: true,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  // Loans List
+                  StreamBuilder<QuerySnapshot>(
+                    stream: AppSession.beneficiaryPhone != null && AppSession.beneficiaryPhone!.isNotEmpty
+                        ? FirebaseFirestore.instance.collection('beneficiaries').where('phone', isEqualTo: AppSession.beneficiaryPhone).snapshots()
+                        : null,
+                    builder: (context, snapshot) {
+                      if (AppSession.beneficiaryPhone == null || AppSession.beneficiaryPhone!.isEmpty) {
+                        return Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                          child: const Center(child: Text('Please log in securely to view your loans', style: TextStyle(color: AppTheme.gray500))),
+                        );
+                      }
 
-                  // Status Card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBEB),
-                      border: Border.all(color: const Color(0xFFFCD34D), width: 2),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.access_time, color: AppTheme.amber600, size: 20),
-                            const SizedBox(width: 8),
-                            const Text('Pending Verification',
-                                style: TextStyle(color: AppTheme.amber600, fontSize: 13, fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Utilization Progress',
-                                style: TextStyle(fontSize: 11, color: AppTheme.gray600)),
-                            Text('${loanData.progress}%',
-                                style: const TextStyle(fontSize: 11, color: AppTheme.gray600)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: loanData.progress / 100,
-                            minHeight: 8,
-                            backgroundColor: AppTheme.gray200,
-                            valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.blue500),
-                          ),
-                        ),
-                      ],
-                    ),
+                      if (snapshot.hasError) {
+                        return Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                          child: const Center(child: Text('Error loading dashboard data', style: TextStyle(color: AppTheme.red600))),
+                        );
+                      }
+
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()));
+                      }
+
+                      if (!snapshot.hasData || snapshot.data == null || snapshot.data!.docs.isEmpty) {
+                        return Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                          child: const Center(child: Text('No loans found for your profile', style: TextStyle(color: AppTheme.gray500))),
+                        );
+                      }
+
+                      final docs = snapshot.data!.docs;
+
+                      return ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: docs.length,
+                        itemBuilder: (context, index) {
+                          final loanDoc = docs[index].data() as Map<String, dynamic>;
+                          final lId = loanDoc['loanId']?.toString() ?? 'N/A';
+                          final lAmountRaw = loanDoc['loanAmount'];
+                          final lAmount = lAmountRaw is int ? lAmountRaw : int.tryParse(lAmountRaw?.toString() ?? '0') ?? 0;
+                          final lPurpose = loanDoc['loanPurpose']?.toString() ?? 'N/A';
+                          final lStatus = loanDoc['status']?.toString() ?? 'pending';
+                          final lProgressRaw = loanDoc['progress'];
+                          final lProgress = lProgressRaw is int ? lProgressRaw : int.tryParse(lProgressRaw?.toString() ?? '0') ?? 0;
+                          final lDisbursed = _formatIsoDate(loanDoc['disbursedDate']?.toString());
+                          final lDeadline = _formatIsoDate(loanDoc['deadline']?.toString());
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: GestureDetector(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => LoanDetailsScreen(
+                                    loanId: lId,
+                                    name: beneficiaryName,
+                                    amount: lAmount,
+                                    status: lStatus,
+                                    disbursedDate: lDisbursed,
+                                    purpose: lPurpose,
+                                    deadline: lDeadline,
+                                    progress: lProgress,
+                                  ),
+                                ),
+                              ),
+                              child: _buildCard(
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text('Loan Summary',
+                                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppTheme.gray800)),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text('ID: $lId',
+                                                style: const TextStyle(fontSize: 11, color: AppTheme.gray500)),
+                                            const SizedBox(width: 4),
+                                            const Icon(Icons.chevron_right, size: 16, color: AppTheme.gray400),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _buildInfoItem(
+                                            icon: Icons.currency_rupee,
+                                            label: 'Loan Amount',
+                                            value: '₹${_formatAmount(lAmount)}',
+                                            valueSize: 20,
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: _buildInfoItem(
+                                            icon: Icons.calendar_today,
+                                            label: 'Deadline',
+                                            value: lDeadline,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(height: 24),
+                                    _buildInfoItem(
+                                      icon: Icons.gps_fixed,
+                                      label: 'Purpose',
+                                      value: lPurpose,
+                                      fullWidth: true,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFFBEB),
+                                        border: Border.all(color: const Color(0xFFFCD34D), width: 1.5),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.access_time, color: AppTheme.amber600, size: 18),
+                                              const SizedBox(width: 8),
+                                              Text(lStatus == 'pending' ? 'Pending Verification' : 'Verified & Approved',
+                                                  style: const TextStyle(color: AppTheme.amber600, fontSize: 12, fontWeight: FontWeight.w600)),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              const Text('Utilization Progress',
+                                                  style: TextStyle(fontSize: 11, color: AppTheme.gray600)),
+                                              Text('$lProgress%',
+                                                  style: const TextStyle(fontSize: 11, color: AppTheme.gray600)),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(4),
+                                            child: LinearProgressIndicator(
+                                              value: lProgress / 100,
+                                              minHeight: 6,
+                                              backgroundColor: AppTheme.gray200,
+                                              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.blue500),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
-                  const SizedBox(height: 16),
 
                   // ── Pending Uploads Card ──────────────────────────────────────
                   if (_pendingCount > 0 || _uploadedCount > 0)
@@ -389,45 +436,7 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
                   ),
                   const SizedBox(height: 16),
 
-                  // Timeline
-                  _buildCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Timeline',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppTheme.gray800)),
-                        const SizedBox(height: 16),
-                        _buildTimelineItem(
-                          icon: Icons.check_circle,
-                          iconColor: AppTheme.green600,
-                          bgColor: const Color(0xFFF0FDF4),
-                          borderColor: AppTheme.green600,
-                          title: 'Loan Disbursed',
-                          subtitle: loanData.disbursedDate,
-                          isLast: false,
-                        ),
-                        _buildTimelineItem(
-                          icon: Icons.access_time,
-                          iconColor: AppTheme.amber600,
-                          bgColor: const Color(0xFFFFFBEB),
-                          borderColor: AppTheme.amber600,
-                          title: 'Proof Submission Pending',
-                          subtitle: 'Action Required',
-                          isLast: false,
-                        ),
-                        _buildTimelineItem(
-                          icon: Icons.circle,
-                          iconColor: AppTheme.gray400,
-                          bgColor: AppTheme.gray100,
-                          borderColor: AppTheme.gray200,
-                          title: 'Verification & Approval',
-                          subtitle: 'Upcoming',
-                          isLast: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+
 
                   // Help Section
                   Container(

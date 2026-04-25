@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import '../../utils/app_theme.dart';
+import '../../services/app_session.dart';
 import 'officer_profile_screen.dart';
 
 class OfficerDashboardScreen extends StatefulWidget {
@@ -13,7 +16,85 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
   String _activeFilter = 'pending';
   final _searchController = TextEditingController();
 
-  final List<Map<String, dynamic>> _verifications = [];
+  List<Map<String, dynamic>> _verifications = [];
+  List<String> _assignedPhones = [];
+  StreamSubscription<QuerySnapshot>? _uploadsSub;
+  StreamSubscription<QuerySnapshot>? _beneficiariesSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAssignedData();
+  }
+
+  void _loadAssignedData() {
+    final officerId = AppSession.officerId;
+    if (officerId == null) return;
+
+    _beneficiariesSub = FirebaseFirestore.instance
+        .collection('beneficiaries')
+        .where('assignedOfficer', isEqualTo: officerId)
+        .snapshots()
+        .listen((bSnap) {
+      if (!mounted) return;
+      _assignedPhones = bSnap.docs
+          .map((doc) => (doc.data() as Map<String, dynamic>)['phone'] as String?)
+          .where((phone) => phone != null && phone.isNotEmpty)
+          .cast<String>()
+          .toList();
+
+      _setupUploadsSub();
+    });
+  }
+
+  void _setupUploadsSub() {
+    _uploadsSub?.cancel();
+    _uploadsSub = FirebaseFirestore.instance
+        .collection('uploads')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      setState(() {
+        _verifications.clear();
+        for (var doc in snap.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final phone = data['phone']?.toString() ?? '';
+          if (_assignedPhones.contains(phone)) {
+            _verifications.add({
+              'id': doc.id,
+              'name': 'User: $phone', // Fallback since name isn't in uploads
+              'phone': phone,
+              'loanId': data['loanId'] ?? 'N/A',
+              'amount': 0, // Placeholder
+              'date': _formatIsoDate(data['timestamp']?.toString()),
+              'purpose': 'Proof Upload',
+              'status': data['status'] ?? 'pending',
+              'aiConfidence': 85, // Dummy AI confidence
+            });
+          }
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _beneficiariesSub?.cancel();
+    _uploadsSub?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  String _formatIsoDate(String? isoString) {
+    if (isoString == null || isoString.isEmpty) return 'N/A';
+    try {
+      final d = DateTime.parse(isoString);
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } catch (e) {
+      return isoString;
+    }
+  }
 
   List<Map<String, dynamic>> get _filtered {
     return _verifications.where((v) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -30,8 +31,33 @@ class _AdminUploadsScreenState extends State<AdminUploadsScreen> {
   String _searchQuery = '';
   String? _busyDocId;
 
+  List<String>? _assignedPhones;
+  StreamSubscription<QuerySnapshot>? _beneficiariesSub;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.allowReviewActions && AppSession.role == AppRole.officer && AppSession.officerId != null) {
+      _beneficiariesSub = FirebaseFirestore.instance
+          .collection('beneficiaries')
+          .where('assignedOfficer', isEqualTo: AppSession.officerId)
+          .snapshots()
+          .listen((snap) {
+        if (!mounted) return;
+        setState(() {
+          _assignedPhones = snap.docs
+              .map((doc) => (doc.data() as Map<String, dynamic>)['phone'] as String?)
+              .where((phone) => phone != null && phone.isNotEmpty)
+              .cast<String>()
+              .toList();
+        });
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _beneficiariesSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -210,6 +236,18 @@ class _AdminUploadsScreenState extends State<AdminUploadsScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 var docs = snapshot.data?.docs ?? [];
+                
+                // Officer assigned phones filter
+                if (widget.allowReviewActions && AppSession.role == AppRole.officer) {
+                  if (_assignedPhones == null) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  docs = docs.where((d) {
+                    final phone = d.data()['phone'] as String? ?? '';
+                    return _assignedPhones!.contains(phone);
+                  }).toList();
+                }
+
                 // Client-side loanId filter
                 if (_searchQuery.isNotEmpty) {
                   docs = docs.where((d) {

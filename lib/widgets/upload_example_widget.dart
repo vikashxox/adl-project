@@ -101,7 +101,7 @@ class _UploadExampleState extends State<UploadExample> {
         latitude: _position!.latitude,
         longitude: _position!.longitude,
         timestamp: DateTime.now().toIso8601String(),
-        userId: 'user123',
+        phone: '1234567890',
       );
 
       if (success) {

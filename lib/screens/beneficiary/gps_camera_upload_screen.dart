@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
@@ -28,8 +29,9 @@ class GpsCameraUploadScreen extends StatefulWidget {
 
 class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
   // ─── Loan Data ─────────────────────────────────────────────────────────────
-  late final List<Map<String, String>> _availableLoans;
+  List<Map<String, String>> _availableLoans = [];
   String? _selectedLoanId;
+  bool _isLoadingLoans = true;
 
   // ─── Capture State ─────────────────────────────────────────────────────────
   File? _image;
@@ -51,13 +53,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
   @override
   void initState() {
     super.initState();
-    _availableLoans = [
-      {
-        'id': AppSession.loanId ?? 'N/A',
-        'name': AppSession.loanPurpose ?? 'N/A'
-      }
-    ];
-    _selectedLoanId = _availableLoans.first['id'];
+    _fetchLoansFromFirestore();
     
     _loadUploads();
     // Listen for connectivity changes to update the UI in real-time
@@ -86,8 +82,37 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
     }
   }
  
+  Future<void> _fetchLoansFromFirestore() async {
+    try {
+      final phone = AppSession.beneficiaryPhone;
+      if (phone == null || phone.isEmpty) {
+        if (mounted) setState(() => _isLoadingLoans = false);
+        return;
+      }
+      
+      final snap = await FirebaseFirestore.instance.collection('beneficiaries').where('phone', isEqualTo: phone).get();
+      
+      if (mounted) {
+        setState(() {
+          _availableLoans = snap.docs.map((doc) {
+            final data = doc.data();
+            return {
+              'id': data['loanId']?.toString() ?? 'N/A',
+              'name': data['loanPurpose']?.toString() ?? 'Unknown Purpose',
+            };
+          }).toList();
 
-
+          if (_availableLoans.isNotEmpty && (_selectedLoanId == null || !_availableLoans.any((l) => l['id'] == _selectedLoanId))) {
+            _selectedLoanId = _availableLoans.first['id'];
+          }
+          _isLoadingLoans = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching loans: $e');
+      if (mounted) setState(() => _isLoadingLoans = false);
+    }
+  }
   // ─── Location ────────────────────────────────────────────────────────────────
 
   Future<Position?> _fetchLocation() async {
@@ -426,36 +451,45 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
                   // ── Step 1: Loan Selection Dropdown ──────────────────────────
                   const Text('1. Select Loan', style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.gray800)),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: _selectedLoanId != null ? AppTheme.green600 : AppTheme.gray300),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedLoanId,
-                        hint: const Text('Select a loan...'),
-                        isExpanded: true,
-                        items: _availableLoans.map((loan) {
-                          return DropdownMenuItem<String>(
-                            value: loan['id'],
-                            child: Text('${loan['name']} (${loan['id']})'),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          setState(() {
-                            _selectedLoanId = val;
-                            _errorMessage = null;
-                          });
-                        },
+                  if (_isLoadingLoans)
+                    const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Center(child: CircularProgressIndicator()))
+                  else if (_availableLoans.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(12)),
+                      child: const Text('No loans available to snap proof.', style: TextStyle(color: AppTheme.red600)),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: _selectedLoanId != null ? AppTheme.green600 : AppTheme.gray300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedLoanId,
+                          hint: const Text('Select a loan...'),
+                          isExpanded: true,
+                          items: _availableLoans.map((loan) {
+                            return DropdownMenuItem<String>(
+                              value: loan['id'],
+                              child: Text('${loan['name']} (${loan['id']})'),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            setState(() {
+                              _selectedLoanId = val;
+                              _errorMessage = null;
+                            });
+                          },
+                        ),
                       ),
                     ),
-                  ),
 
                   // Show selected loan info
-                  if (_selectedLoanId != null) ...[
+                  if (!_isLoadingLoans && _selectedLoanId != null) ...[
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

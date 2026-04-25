@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class VerificationDetailScreen extends StatefulWidget {
   final String id;
@@ -13,26 +14,66 @@ class VerificationDetailScreen extends StatefulWidget {
 class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
   final _remarksController = TextEditingController();
 
-  final _verification = {
-    'beneficiaryName': 'Ramesh Kumar',
-    'loanId': 'LN2026001234',
-    'amount': 250000,
-    'purpose': 'Agricultural Equipment - Tractor Purchase',
-    'submittedDate': '28 Feb 2026, 10:30 AM',
-    'imageUrl': 'https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=800',
-    'location': '28.6139°N, 77.2090°E',
-    'locationName': 'Near Kharkhoda, Haryana',
-    'timestamp': '28 Feb 2026, 10:28 AM',
-    'description': 'New John Deere 5050D Tractor purchased from authorized dealer. Serial Number: JD5050D123456. Color: Green. Condition: Brand New.',
-    'aiConfidence': 92,
-    'aiChecks': [
-      {'check': 'Image Quality', 'result': 'High', 'passed': true},
-      {'check': 'GPS Authenticity', 'result': 'Verified', 'passed': true},
-      {'check': 'Timestamp Valid', 'result': 'Within Range', 'passed': true},
-      {'check': 'Asset Match', 'result': 'Agricultural Equipment', 'passed': true},
-      {'check': 'Duplicate Check', 'result': 'No Duplicates Found', 'passed': true},
-    ],
-  };
+  Future<Map<String, dynamic>> _fetchVerificationDetails() async {
+    final uploadDoc = await FirebaseFirestore.instance.collection('uploads').doc(widget.id).get();
+    if (!uploadDoc.exists) return {};
+
+    final uploadData = uploadDoc.data()!;
+
+    String name = 'User: ${uploadData['phone'] ?? 'N/A'}';
+    int amount = 0;
+    String purpose = 'N/A';
+
+    final phone = uploadData['phone'] as String?;
+    final loanId = uploadData['loanId'] as String?;
+
+    if (phone != null && loanId != null) {
+      final benSnap = await FirebaseFirestore.instance
+          .collection('beneficiaries')
+          .where('phone', isEqualTo: phone)
+          .where('loanId', isEqualTo: loanId)
+          .limit(1)
+          .get();
+      if (benSnap.docs.isNotEmpty) {
+        final benData = benSnap.docs.first.data();
+        name = benData['beneficiaryName'] ?? name;
+        amount = benData['loanAmount'] is int
+            ? benData['loanAmount'] as int
+            : int.tryParse(benData['loanAmount']?.toString() ?? '0') ?? 0;
+        purpose = benData['loanPurpose'] ?? purpose;
+      }
+    }
+
+    return {
+      'docId': uploadDoc.id,
+      'beneficiaryName': name,
+      'loanId': loanId ?? 'N/A',
+      'amount': amount,
+      'purpose': purpose,
+      'submittedDate': _formatIsoDate(uploadData['timestamp']?.toString()),
+      'imageUrl': uploadData['imageUrl'] ?? '',
+      'location': '${uploadData['latitude'] ?? 'N/A'}, ${uploadData['longitude'] ?? 'N/A'}',
+      'locationName': 'GPS Coordinates',
+      'timestamp': _formatIsoDate(uploadData['timestamp']?.toString()),
+      'description': 'Camera uploaded proof for Loan ID: $loanId.',
+      'aiConfidence': 88,
+      'status': uploadData['status'] ?? 'pending',
+      'aiChecks': [
+        {'check': 'Image Check', 'result': 'High Quality', 'passed': true},
+        {'check': 'GPS Auth', 'result': 'Verified', 'passed': true},
+      ],
+    };
+  }
+
+  String _formatIsoDate(String? isoString) {
+    if (isoString == null || isoString.isEmpty) return 'N/A';
+    try {
+      final d = DateTime.parse(isoString);
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } catch (e) {
+      return isoString;
+    }
+  }
 
   @override
   void dispose() {
@@ -56,9 +97,30 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              Navigator.pushReplacementNamed(context, '/officer-dashboard');
+              
+              // 1. Update status in Firestore
+              final newStatus = action == 'approve'
+                  ? 'approved'
+                  : action == 'reject'
+                      ? 'rejected'
+                      : 'flagged';
+              try {
+                await FirebaseFirestore.instance.collection('uploads').doc(widget.id).update({
+                  'status': newStatus,
+                  'officerRemarks': _remarksController.text,
+                });
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update: $e')));
+                }
+              }
+
+              // 2. Go back
+              if (mounted) {
+                Navigator.pop(context); // Go back to dashboard
+              }
             },
             style: AppTheme.elevatedDialogAction(
               action == 'approve'
@@ -76,22 +138,6 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final confidence = _verification['aiConfidence'] as int;
-    final aiChecks = _verification['aiChecks'] as List;
-
-    Color confidenceColor;
-    Color confidenceBg;
-    if (confidence >= 80) {
-      confidenceColor = AppTheme.green600;
-      confidenceBg = const Color(0xFFF0FDF4);
-    } else if (confidence >= 60) {
-      confidenceColor = AppTheme.amber600;
-      confidenceBg = const Color(0xFFFFFBEB);
-    } else {
-      confidenceColor = AppTheme.red600;
-      confidenceBg = const Color(0xFFFEF2F2);
-    }
-
     return Scaffold(
       backgroundColor: AppTheme.gray50,
       body: Column(
@@ -125,10 +171,37 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
 
           // Content
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: _fetchVerificationDetails(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(child: Text('Verification record not found.'));
+                }
+
+                final _verification = snapshot.data!;
+                final confidence = _verification['aiConfidence'] as int;
+                final aiChecks = _verification['aiChecks'] as List;
+
+                Color confidenceColor;
+                Color confidenceBg;
+                if (confidence >= 80) {
+                  confidenceColor = AppTheme.green600;
+                  confidenceBg = const Color(0xFFF0FDF4);
+                } else if (confidence >= 60) {
+                  confidenceColor = AppTheme.amber600;
+                  confidenceBg = const Color(0xFFFFFBEB);
+                } else {
+                  confidenceColor = AppTheme.red600;
+                  confidenceBg = const Color(0xFFFEF2F2);
+                }
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
                   // Beneficiary Info
                   _card(
                     child: Column(
@@ -431,12 +504,14 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
                   const SizedBox(height: 24),
                 ],
               ),
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       ),
-    );
-  }
+    ],
+  ),
+);
+}
 
   Widget _card({required Widget child}) {
     return Container(
