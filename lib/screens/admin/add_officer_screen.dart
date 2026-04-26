@@ -13,6 +13,9 @@ class _AddOfficerScreenState extends State<AddOfficerScreen> {
   final _offNameCtrl = TextEditingController();
   final _offUsernameCtrl = TextEditingController();
   final _offPasswordCtrl = TextEditingController();
+  final _offPhoneCtrl = TextEditingController();
+  final _offEmailCtrl = TextEditingController();
+  final _offDistrictCtrl = TextEditingController();
   String _offRole = 'field'; // 'field' or 'admin'
 
   bool _isSaving = false;
@@ -22,18 +25,27 @@ class _AddOfficerScreenState extends State<AddOfficerScreen> {
     _offNameCtrl.dispose();
     _offUsernameCtrl.dispose();
     _offPasswordCtrl.dispose();
+    _offPhoneCtrl.dispose();
+    _offEmailCtrl.dispose();
+    _offDistrictCtrl.dispose();
     super.dispose();
   }
 
   bool get _isOffValid =>
       _offNameCtrl.text.isNotEmpty &&
       _offUsernameCtrl.text.isNotEmpty &&
-      _offPasswordCtrl.text.isNotEmpty;
+      _offPasswordCtrl.text.isNotEmpty &&
+      _offPhoneCtrl.text.isNotEmpty &&
+      _offEmailCtrl.text.isNotEmpty &&
+      _offDistrictCtrl.text.isNotEmpty;
 
   void _resetOffForm() {
     _offNameCtrl.clear();
     _offUsernameCtrl.clear();
     _offPasswordCtrl.clear();
+    _offPhoneCtrl.clear();
+    _offEmailCtrl.clear();
+    _offDistrictCtrl.clear();
     setState(() { _offRole = 'field'; });
   }
 
@@ -44,6 +56,9 @@ class _AddOfficerScreenState extends State<AddOfficerScreen> {
         'name': _offNameCtrl.text.trim(),
         'username': _offUsernameCtrl.text.trim(),
         'password': _offPasswordCtrl.text.trim(),
+        'phone': _offPhoneCtrl.text.trim(),
+        'email': _offEmailCtrl.text.trim(),
+        'district': _offDistrictCtrl.text.trim(),
         'role': _offRole,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -97,6 +112,14 @@ class _AddOfficerScreenState extends State<AddOfficerScreen> {
                   _field('Username *', _offUsernameCtrl, 'Enter unique username (e.g. OFF001)'),
                   _field('Password *', _offPasswordCtrl, 'Enter password'),
                   const SizedBox(height: 16),
+
+                  _sectionHeader(Icons.contact_mail, 'Contact Information'),
+                  const SizedBox(height: 16),
+                  _field('Phone Number *', _offPhoneCtrl, 'Enter mobile number', keyboardType: TextInputType.phone),
+                  _field('Email Address *', _offEmailCtrl, 'Enter email', keyboardType: TextInputType.emailAddress),
+                  _field('District *', _offDistrictCtrl, 'Enter assigned district'),
+                  const SizedBox(height: 16),
+
                   const Text('Role *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.gray700)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
@@ -114,6 +137,7 @@ class _AddOfficerScreenState extends State<AddOfficerScreen> {
                   
                   const SizedBox(height: 32),
                   _buildSubmitButton('Save Officer', _isOffValid, _saveOfficer),
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
@@ -150,7 +174,7 @@ class _AddOfficerScreenState extends State<AddOfficerScreen> {
     );
   }
 
-  Widget _field(String label, TextEditingController ctrl, String hint) {
+  Widget _field(String label, TextEditingController ctrl, String hint, {TextInputType? keyboardType}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -160,6 +184,7 @@ class _AddOfficerScreenState extends State<AddOfficerScreen> {
           const SizedBox(height: 4),
           TextField(
             controller: ctrl,
+            keyboardType: keyboardType,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: hint,

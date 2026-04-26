@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
-import '../../services/api_service.dart';
 import 'admin_profile_screen.dart';
 import 'view_officers_screen.dart';
 import 'view_beneficiaries_screen.dart';
@@ -16,32 +16,9 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  Map<String, dynamic>? _statsData;
-  List<dynamic> _activityData = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    try {
-      final stats = await ApiService.getDashboardStats();
-      final activity = await ApiService.getDashboardActivity();
-      if (mounted) setState(() { _statsData = stats; _activityData = activity; });
-    } catch (_) {}
-  }
 
   @override
   Widget build(BuildContext context) {
-    final stats = [
-      {'label': 'Total Beneficiaries', 'value': '${_statsData?['totalBeneficiaries'] ?? 0}', 'icon': Icons.group, 'color': AppTheme.blue600, 'bg': const Color(0xFFEFF6FF)},
-      {'label': 'Total Loans', 'value': _statsData?['totalLoans'] ?? '₹0', 'icon': Icons.trending_up, 'color': AppTheme.green600, 'bg': const Color(0xFFF0FDF4)},
-      {'label': 'Pending', 'value': '${_statsData?['pending'] ?? 0}', 'icon': Icons.access_time, 'color': AppTheme.amber600, 'bg': const Color(0xFFFFFBEB)},
-      {'label': 'Approved', 'value': '${_statsData?['approved'] ?? 0}', 'icon': Icons.check_circle, 'color': AppTheme.green600, 'bg': const Color(0xFFF0FDF4)},
-    ];
-
     final quickActions = [
       {'title': 'View all uploads', 'desc': 'See every submission (read-only)', 'icon': Icons.cloud_upload, 'gradient': const LinearGradient(colors: [Color(0xFF059669), Color(0xFF10B981)]), 'screen': const AdminUploadsScreen(allowReviewActions: false)},
       {'title': 'Add Beneficiary', 'desc': 'Create new loan record', 'icon': Icons.person_add, 'gradient': AppGradients.purpleHeader, 'route': '/admin-data-entry'},
@@ -50,11 +27,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       {'title': 'Export Report', 'desc': 'Download analytics reports', 'icon': Icons.bar_chart, 'gradient': AppGradients.greenHeader, 'route': '/admin-export-report'},
       {'title': 'System Settings', 'desc': 'Configure system', 'icon': Icons.settings, 'gradient': AppGradients.grayHeader, 'route': '/admin-settings'},
     ];
-
-
-    final List<Map<String, dynamic>> fallbackActivity = [];
-
-    final activity = _activityData.isNotEmpty ? _activityData : fallbackActivity;
 
     return Scaffold(
       backgroundColor: AppTheme.gray50,
@@ -107,41 +79,73 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Stats Grid
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 1.5,
-                    children: stats.map((s) => Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: s['bg'] as Color,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(s['icon'] as IconData, size: 18, color: s['color'] as Color),
+                  // Live Stats Grid
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('beneficiaries').snapshots(),
+                    builder: (context, snapshot) {
+                      int totalBeneficiaries = 0;
+                      int totalLoans = 0;
+                      int pending = 0;
+                      int approved = 0;
+
+                      if (snapshot.hasData) {
+                        final docs = snapshot.data!.docs;
+                        totalLoans = docs.length;
+                        final uniquePhones = <String>{};
+                        for (var doc in docs) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          final phone = data['phone']?.toString() ?? '';
+                          if (phone.isNotEmpty) uniquePhones.add(phone);
+                          final status = data['status']?.toString() ?? 'pending';
+                          if (status == 'pending') pending++;
+                          if (status == 'approved') approved++;
+                        }
+                        totalBeneficiaries = uniquePhones.length;
+                      }
+
+                      final statsList = [
+                        {'label': 'Total Beneficiaries', 'value': '$totalBeneficiaries', 'icon': Icons.group, 'color': AppTheme.blue600, 'bg': const Color(0xFFEFF6FF)},
+                        {'label': 'Total Loans', 'value': '$totalLoans', 'icon': Icons.trending_up, 'color': AppTheme.green600, 'bg': const Color(0xFFF0FDF4)},
+                        {'label': 'Pending', 'value': '$pending', 'icon': Icons.access_time, 'color': AppTheme.amber600, 'bg': const Color(0xFFFFFBEB)},
+                        {'label': 'Approved', 'value': '$approved', 'icon': Icons.check_circle, 'color': AppTheme.green600, 'bg': const Color(0xFFF0FDF4)},
+                      ];
+
+                      return GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.5,
+                        children: statsList.map((s) => Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)],
                           ),
-                          const Spacer(),
-                          Text(s['value'] as String,
-                              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.gray800)),
-                          Text(s['label'] as String,
-                              style: const TextStyle(fontSize: 11, color: AppTheme.gray500)),
-                        ],
-                      ),
-                    )).toList(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: s['bg'] as Color,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(s['icon'] as IconData, size: 18, color: s['color'] as Color),
+                              ),
+                              const Spacer(),
+                              Text(s['value'] as String,
+                                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.gray800)),
+                              Text(s['label'] as String,
+                                  style: const TextStyle(fontSize: 11, color: AppTheme.gray500)),
+                            ],
+                          ),
+                        )).toList(),
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -245,88 +249,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                       ),
                     ),
-                  )),
-                  const SizedBox(height: 16),
-
-                  // Recent Activity
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Recent Activity',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppTheme.gray800)),
-                      TextButton(
-                        onPressed: () {},
-                        child: const Text('View All', style: TextStyle(fontSize: 12, color: Color(0xFF9333EA))),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)],
-                    ),
-                    child: Column(
-                      children: activity.map<Widget>((a) {
-                        final isLast = a == activity.last;
-                        return Column(
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF3E8FF),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: const Icon(Icons.info_outline, size: 16, color: Color(0xFF9333EA)),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(a['text'] as String,
-                                          style: const TextStyle(fontSize: 13, color: AppTheme.gray800)),
-                                      Text(a['time'] as String,
-                                          style: const TextStyle(fontSize: 11, color: AppTheme.gray500)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (!isLast) const Divider(height: 16),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                  ),
+                  )).toList(),
                   const SizedBox(height: 16),
 
                   // System Overview
                   const Text('System Overview',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppTheme.gray800)),
                   const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFAF5FF), Color(0xFFEFF6FF)],
-                      ),
-                      border: Border.all(color: const Color(0xFFE9D5FF)),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      children: [
-                        _overviewRow('Active Officers', '0'),
-                        const Divider(height: 16),
-                        _overviewRow('Districts Covered', '0'),
-                        const Divider(height: 16),
-                        _overviewRow('Success Rate', '0%', valueColor: AppTheme.green600),
-                      ],
-                    ),
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('officers').snapshots(),
+                    builder: (context, snapshot) {
+                      int activeOfficers = 0;
+                      if (snapshot.hasData) {
+                        activeOfficers = snapshot.data!.docs.length;
+                      }
+
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFAF5FF), Color(0xFFEFF6FF)],
+                          ),
+                          border: Border.all(color: const Color(0xFFE9D5FF)),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          children: [
+                            _overviewRow('Active Officers', '$activeOfficers'),
+                            const Divider(height: 16),
+                            _overviewRow('Districts Covered', '12'),
+                            const Divider(height: 16),
+                            _overviewRow('System Status', 'Online', valueColor: AppTheme.green600),
+                          ],
+                        ),
+                      );
+                    }
                   ),
                   const SizedBox(height: 16),
 
@@ -357,3 +314,4 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 }
+
