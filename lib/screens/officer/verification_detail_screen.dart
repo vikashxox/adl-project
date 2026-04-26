@@ -111,6 +111,26 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
                   'status': newStatus,
                   'officerRemarks': _remarksController.text,
                 });
+
+                if (newStatus == 'approved') {
+                  final uploadDoc = await FirebaseFirestore.instance.collection('uploads').doc(widget.id).get();
+                  final phone = uploadDoc.data()?['phone'];
+                  final loanId = uploadDoc.data()?['loanId'];
+                  if (phone != null && loanId != null) {
+                    final benSnap = await FirebaseFirestore.instance
+                        .collection('beneficiaries')
+                        .where('phone', isEqualTo: phone)
+                        .where('loanId', isEqualTo: loanId)
+                        .limit(1)
+                        .get();
+                    if (benSnap.docs.isNotEmpty) {
+                      await benSnap.docs.first.reference.update({
+                        'status': 'approved',
+                        'progress': 100,
+                      });
+                    }
+                  }
+                }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update: $e')));

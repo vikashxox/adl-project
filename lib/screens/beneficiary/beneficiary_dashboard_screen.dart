@@ -251,27 +251,40 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
                                     Container(
                                       padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFFFFBEB),
-                                        border: Border.all(color: const Color(0xFFFCD34D), width: 1.5),
+                                        color: lStatus == 'approved' ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+                                        border: Border.all(
+                                          color: lStatus == 'approved' ? const Color(0xFF86EFAC) : const Color(0xFFFCD34D), 
+                                          width: 1.5,
+                                        ),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Column(
                                         children: [
                                           Row(
                                             children: [
-                                              const Icon(Icons.access_time, color: AppTheme.amber600, size: 18),
+                                              Icon(
+                                                lStatus == 'approved' ? Icons.check_circle : Icons.access_time, 
+                                                color: lStatus == 'approved' ? AppTheme.green600 : AppTheme.amber600, 
+                                                size: 18,
+                                              ),
                                               const SizedBox(width: 8),
-                                              Text(lStatus == 'pending' ? 'Pending Verification' : 'Verified & Approved',
-                                                  style: const TextStyle(color: AppTheme.amber600, fontSize: 12, fontWeight: FontWeight.w600)),
+                                              Text(
+                                                lStatus == 'approved' ? 'Done' : 'Pending Verification',
+                                                style: TextStyle(
+                                                  color: lStatus == 'approved' ? AppTheme.green600 : AppTheme.amber600, 
+                                                  fontSize: 12, 
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
                                             ],
                                           ),
                                           const SizedBox(height: 12),
                                           Row(
                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             children: [
-                                              const Text('Utilization Progress',
-                                                  style: TextStyle(fontSize: 11, color: AppTheme.gray600)),
-                                              Text('$lProgress%',
+                                              Text(lStatus == 'approved' ? 'Utilization Process' : 'Utilization Progress',
+                                                  style: const TextStyle(fontSize: 11, color: AppTheme.gray600)),
+                                              Text(lStatus == 'approved' ? '100%' : '$lProgress%',
                                                   style: const TextStyle(fontSize: 11, color: AppTheme.gray600)),
                                             ],
                                           ),
@@ -282,7 +295,9 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
                                               value: lProgress / 100,
                                               minHeight: 6,
                                               backgroundColor: AppTheme.gray200,
-                                              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.blue500),
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                lStatus == 'approved' ? AppTheme.green500 : AppTheme.blue500,
+                                              ),
                                             ),
                                           ),
                                         ],
