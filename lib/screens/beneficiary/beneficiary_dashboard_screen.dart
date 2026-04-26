@@ -313,66 +313,7 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
                     },
                   ),
 
-                  // ── Pending Uploads Card ──────────────────────────────────────
-                  if (_pendingCount > 0 || _uploadedCount > 0)
-                    GestureDetector(
-                      onTap: () async {
-                        await Navigator.pushNamed(context, '/pending-uploads');
-                        _loadCounts(); // Refresh counts on return
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: _pendingCount > 0 ? const Color(0xFFFED7AA) : const Color(0xFFBBF7D0)),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: _pendingCount > 0 ? Colors.orange.withOpacity(0.1) : AppTheme.green600.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                _pendingCount > 0 ? Icons.cloud_upload : Icons.cloud_done,
-                                color: _pendingCount > 0 ? Colors.orange : AppTheme.green600,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Upload Queue',
-                                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.gray800)),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _pendingCount > 0
-                                        ? '$_pendingCount pending · $_uploadedCount uploaded'
-                                        : 'All $_uploadedCount uploads complete',
-                                    style: const TextStyle(fontSize: 12, color: AppTheme.gray500),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (_pendingCount > 0)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(color: Colors.orange[100], borderRadius: BorderRadius.circular(12)),
-                                child: Text('$_pendingCount',
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.orange[800])),
-                              ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.chevron_right, color: AppTheme.gray400),
-                          ],
-                        ),
-                      ),
-                    ),
-                  if (_pendingCount > 0 || _uploadedCount > 0) const SizedBox(height: 16),
+
 
                   // GPS Camera Upload Button
                   Container(
@@ -400,28 +341,7 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
                   ),
                   const SizedBox(height: 12),
 
-                  // Debug Button (temporary)
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFDC2626), Color(0xFFEF4444)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(color: Colors.red.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4)),
-                      ],
-                    ),
-                    child: ElevatedButton.icon(
-                      onPressed: () => Navigator.pushNamed(context, '/upload-debug'),
-                      icon: const Icon(Icons.bug_report, color: Colors.white),
-                      label: const Text('Debug Upload', style: TextStyle(color: Colors.white)),
-                      style: AppTheme.elevatedOnGradient(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+
 
                   // View History Button
                   Container(

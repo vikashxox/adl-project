@@ -157,10 +157,6 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
     await _pickImage(ImageSource.camera);
   }
 
-  Future<void> _pickFromGallery() async {
-    await _pickImage(ImageSource.gallery);
-  }
-
   Future<void> _pickImage(ImageSource source) async {
     print('📷 User initiated image capture/picking from $source');
     
@@ -517,13 +513,10 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
                   _buildImagePreview(),
                   const SizedBox(height: 16),
 
-                  // Capture & Gallery buttons
-                  Row(
-                    children: [
-                      Expanded(child: _buildCaptureButton()),
-                      const SizedBox(width: 12),
-                      Expanded(child: _buildGalleryButton()),
-                    ],
+                  // Capture button
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildCaptureButton(),
                   ),
                   const SizedBox(height: 16),
 
@@ -731,30 +724,6 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
         label: Text(
           isLoading ? 'GPS…' : 'Camera',
           style: const TextStyle(color: AppTheme.blue600, fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGalleryButton() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppTheme.gray400),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: ElevatedButton.icon(
-        onPressed: _isFetchingLocation ? null : _pickFromGallery,
-        icon: const Icon(Icons.photo_library, color: AppTheme.gray700, size: 20),
-        label: const Text(
-          'Gallery',
-          style: TextStyle(color: AppTheme.gray700, fontSize: 14, fontWeight: FontWeight.w600),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
