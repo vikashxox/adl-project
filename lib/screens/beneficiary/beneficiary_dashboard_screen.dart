@@ -6,6 +6,7 @@ import '../../services/connectivity_service.dart';
 import 'loan_details_screen.dart';
 import 'beneficiary_profile_screen.dart';
 import '../../services/app_session.dart';
+import '../../widgets/notification_bell.dart';
 
 /// Beneficiary Dashboard — shows loan summary, status, action buttons,
 /// pending uploads badge, and timeline.
@@ -111,6 +112,8 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                const NotificationBell(),
                 const SizedBox(width: 8),
                 // Profile icon
                 GestureDetector(

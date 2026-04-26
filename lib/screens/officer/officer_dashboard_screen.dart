@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import '../../utils/app_theme.dart';
 import '../../services/app_session.dart';
+import '../../widgets/notification_bell.dart';
 import 'officer_profile_screen.dart';
 
 class OfficerDashboardScreen extends StatefulWidget {
@@ -167,6 +168,8 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
                         ],
                       ),
                     ),
+                    const NotificationBell(),
+                    const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OfficerProfileScreen())),
                       child: Container(

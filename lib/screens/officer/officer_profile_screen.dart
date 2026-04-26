@@ -14,6 +14,7 @@ class OfficerProfileScreen extends StatefulWidget {
 
 class _OfficerProfileScreenState extends State<OfficerProfileScreen> {
   Map<String, dynamic>? _profile;
+  String? _docId;
   int _assignedCount = 0;
   bool _isLoading = true;
 
@@ -38,6 +39,7 @@ class _OfficerProfileScreenState extends State<OfficerProfileScreen> {
           .get();
 
       if (snap.docs.isNotEmpty) {
+        _docId = snap.docs.first.id;
         _profile = snap.docs.first.data();
       }
 
@@ -157,6 +159,14 @@ class _OfficerProfileScreenState extends State<OfficerProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
+                  
+                  OutlinedButton.icon(
+                    onPressed: _showChangePasswordDialog,
+                    icon: const Icon(Icons.lock_reset),
+                    label: const Text('Change Password'),
+                    style: AppTheme.outlinedFullWidth(sideColor: AppTheme.green600, foregroundColor: AppTheme.green600),
+                  ),
+                  const SizedBox(height: 16),
 
                   OutlinedButton(
                     onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/role-selection', (_) => false),
@@ -239,6 +249,79 @@ class _OfficerProfileScreenState extends State<OfficerProfileScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog() {
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('Change Password', style: TextStyle(fontWeight: FontWeight.w600)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: currentCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Current Password')),
+                  const SizedBox(height: 8),
+                  TextField(controller: newCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'New Password')),
+                  const SizedBox(height: 8),
+                  TextField(controller: confirmCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Confirm New Password')),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel', style: TextStyle(color: AppTheme.gray500)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.green600),
+                onPressed: isSaving ? null : () async {
+                  final current = currentCtrl.text.trim();
+                  final newPass = newCtrl.text.trim();
+                  final confirm = confirmCtrl.text.trim();
+
+                  if (current.isEmpty || newPass.isEmpty || confirm.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
+                    return;
+                  }
+                  if (current != _profile?['password']) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Current password is incorrect')));
+                    return;
+                  }
+                  if (newPass != confirm) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('New passwords do not match')));
+                    return;
+                  }
+                  if (_docId == null) return;
+
+                  setDialogState(() => isSaving = true);
+                  try {
+                    await FirebaseFirestore.instance.collection('officers').doc(_docId).update({'password': newPass});
+                    _profile!['password'] = newPass; // update local memory
+                    if (!ctx.mounted) return;
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password changed successfully!'), backgroundColor: AppTheme.green600));
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  } finally {
+                    if (ctx.mounted) setDialogState(() => isSaving = false);
+                  }
+                },
+                child: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Change Password', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        }
       ),
     );
   }

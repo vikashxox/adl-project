@@ -7,6 +7,8 @@ import 'view_beneficiaries_screen.dart';
 import 'admin_uploads_screen.dart';
 import 'add_officer_screen.dart';
 import 'add_extra_loan_screen.dart';
+import 'admin_broadcast_screen.dart';
+import '../../widgets/notification_bell.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -24,6 +26,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       {'title': 'Add Beneficiary', 'desc': 'Create new loan record', 'icon': Icons.person_add, 'gradient': AppGradients.purpleHeader, 'route': '/admin-data-entry'},
       {'title': 'Assign Extra Loan', 'desc': 'Add loan to existing beneficiary', 'icon': Icons.post_add, 'gradient': const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF0284C7)]), 'screen': const AddExtraLoanScreen()},
       {'title': 'Add Officer', 'desc': 'Create new officer record', 'icon': Icons.admin_panel_settings, 'gradient': AppGradients.blueHeader, 'screen': const AddOfficerScreen()},
+      {'title': 'Send Broadcast', 'desc': 'Global app notifications', 'icon': Icons.campaign, 'gradient': const LinearGradient(colors: [Color(0xFFDC2626), Color(0xFFEF4444)]), 'screen': const AdminBroadcastScreen()},
       {'title': 'Export Report', 'desc': 'Download analytics reports', 'icon': Icons.bar_chart, 'gradient': AppGradients.greenHeader, 'route': '/admin-export-report'},
       {'title': 'System Settings', 'desc': 'Configure system', 'icon': Icons.settings, 'gradient': AppGradients.grayHeader, 'route': '/admin-settings'},
     ];
@@ -61,6 +64,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ],
                   ),
                 ),
+                const NotificationBell(),
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminProfileScreen())),
                   child: Container(
