@@ -395,20 +395,12 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Need Help?',
+                            children: const [
+                              Text('Need Help?',
                                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.gray800)),
-                              const SizedBox(height: 16),
-                              Text('Contact support for assistance with your loan application',
-                                  style: const TextStyle(fontSize: 11, color: AppTheme.gray600)),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: const [
-                                  Text('Contact Support',
-                                      style: TextStyle(fontSize: 11, color: AppTheme.blue600)),
-                                  Icon(Icons.chevron_right, size: 14, color: AppTheme.blue600),
-                                ],
-                              ),
+                              SizedBox(height: 12),
+                              Text('Contact support for assistance:\nName: satwik k\nPhone: 8610760576\nEmail: rogeshmass42@gmail.com',
+                                  style: TextStyle(fontSize: 12, height: 1.5, color: AppTheme.gray700)),
                             ],
                           ),
                         ),
