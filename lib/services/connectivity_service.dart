@@ -75,6 +75,7 @@ class ConnectivityService extends ChangeNotifier {
             latitude: upload.latitude,
             longitude: upload.longitude,
             timestamp: upload.timestamp,
+            phone: upload.phone, // Pass the phone number so Officer Dashboard can filter it
           );
           if (imageUrl != null) {
             // ✅ Save the Cloudinary URL — not just flip the status

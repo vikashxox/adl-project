@@ -186,7 +186,10 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                   const SizedBox(height: 24),
 
                   OutlinedButton(
-                    onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/role-selection', (_) => false),
+                    onPressed: () {
+                      AppSession.clear();
+                      Navigator.pushNamedAndRemoveUntil(context, '/role-selection', (_) => false);
+                    },
                     style: AppTheme.outlinedFullWidth(sideColor: AppTheme.red600, foregroundColor: AppTheme.red600),
                     child: const Text('Logout'),
                   ),

@@ -133,9 +133,11 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.gray50,
-      body: Column(
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: AppTheme.gray50,
+        body: Column(
         children: [
           // Header
           Container(
@@ -410,7 +412,7 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 

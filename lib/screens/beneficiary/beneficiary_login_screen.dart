@@ -20,6 +20,17 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
   DocumentSnapshot? _beneficiaryDoc;
 
   @override
+  void initState() {
+    super.initState();
+    // Auto-redirect if already logged in
+    if (AppSession.beneficiaryPhone != null && AppSession.beneficiaryPhone!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushNamedAndRemoveUntil(context, '/beneficiary-dashboard', (route) => false);
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _mobileController.dispose();
     for (var c in _otpControllers) c.dispose();
@@ -79,7 +90,7 @@ class _BeneficiaryLoginScreenState extends State<BeneficiaryLoginScreen> {
         deadlineDate: data['deadline'] ?? '',
         status: data['status'] ?? 'pending',
       );
-      Navigator.pushReplacementNamed(context, '/beneficiary-dashboard');
+      Navigator.pushNamedAndRemoveUntil(context, '/beneficiary-dashboard', (route) => false);
     }
   }
 

@@ -17,6 +17,21 @@ class _OfficerLoginScreenState extends State<OfficerLoginScreen> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Auto-redirect if already logged in
+    if (AppSession.role == AppRole.admin) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushNamedAndRemoveUntil(context, '/admin-dashboard', (route) => false);
+      });
+    } else if (AppSession.role == AppRole.officer && AppSession.officerId != null && AppSession.officerId!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushNamedAndRemoveUntil(context, '/officer-dashboard', (route) => false);
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _officerIdController.dispose();
     _passwordController.dispose();
@@ -30,7 +45,7 @@ class _OfficerLoginScreenState extends State<OfficerLoginScreen> {
           _officerIdController.text.trim() == 'admin' && 
           _passwordController.text.trim() == 'admin') {
         AppSession.setAdmin();
-        Navigator.pushReplacementNamed(context, '/admin-dashboard');
+        Navigator.pushNamedAndRemoveUntil(context, '/admin-dashboard', (route) => false);
         return;
       }
 
@@ -52,10 +67,10 @@ class _OfficerLoginScreenState extends State<OfficerLoginScreen> {
         } else {
           if (_officerType == 'admin') {
             AppSession.setAdmin();
-            Navigator.pushReplacementNamed(context, '/admin-dashboard');
+            Navigator.pushNamedAndRemoveUntil(context, '/admin-dashboard', (route) => false);
           } else {
             AppSession.setOfficer(_officerIdController.text);
-            Navigator.pushReplacementNamed(context, '/officer-dashboard');
+            Navigator.pushNamedAndRemoveUntil(context, '/officer-dashboard', (route) => false);
           }
         }
       } catch (e) {

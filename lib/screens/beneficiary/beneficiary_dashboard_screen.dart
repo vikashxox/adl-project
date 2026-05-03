@@ -56,9 +56,11 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
   Widget build(BuildContext context) {
     final beneficiaryName = AppSession.beneficiaryName ?? 'Unknown User';
 
-    return Scaffold(
-      backgroundColor: AppTheme.gray50,
-      body: Column(
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: AppTheme.gray50,
+        body: Column(
         children: [
           // Header
           Container(
@@ -413,7 +415,7 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildCard({required Widget child}) {

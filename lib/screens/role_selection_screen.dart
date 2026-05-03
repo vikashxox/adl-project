@@ -13,7 +13,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   @override
   void initState() {
     super.initState();
-    AppSession.clear();
+    // Intentionally not clearing session here so back button doesn't log user out
   }
 
   @override

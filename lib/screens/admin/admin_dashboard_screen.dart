@@ -9,7 +9,7 @@ import 'add_officer_screen.dart';
 import 'add_extra_loan_screen.dart';
 import 'admin_broadcast_screen.dart';
 import '../../widgets/notification_bell.dart';
-
+import '../../services/app_session.dart';
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
@@ -31,9 +31,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       {'title': 'System Settings', 'desc': 'Configure system', 'icon': Icons.settings, 'gradient': AppGradients.grayHeader, 'route': '/admin-settings'},
     ];
 
-    return Scaffold(
-      backgroundColor: AppTheme.gray50,
-      body: Column(
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: AppTheme.gray50,
+        body: Column(
         children: [
           // Header
           Container(
@@ -294,7 +296,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                   // Logout
                   OutlinedButton(
-                    onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/role-selection', (_) => false),
+                    onPressed: () {
+                      AppSession.clear();
+                      Navigator.pushNamedAndRemoveUntil(context, '/role-selection', (_) => false);
+                    },
                     style: AppTheme.outlinedFullWidth(),
                     child: const Text('Logout'),
                   ),
@@ -305,7 +310,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _overviewRow(String label, String value, {Color? valueColor}) {

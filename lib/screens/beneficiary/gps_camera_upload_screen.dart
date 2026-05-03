@@ -238,6 +238,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
         latitude: _position?.latitude ?? 0.0,
         longitude: _position?.longitude ?? 0.0,
         timestamp: _timestamp?.toIso8601String() ?? DateTime.now().toIso8601String(),
+        phone: AppSession.beneficiaryPhone,
         status: 'pending',
       );
 
@@ -295,6 +296,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
         latitude: _position?.latitude ?? 0.0,
         longitude: _position?.longitude ?? 0.0,
         timestamp: _timestamp?.toIso8601String() ?? DateTime.now().toIso8601String(),
+        phone: AppSession.beneficiaryPhone,
         status: 'uploaded',
       );
       

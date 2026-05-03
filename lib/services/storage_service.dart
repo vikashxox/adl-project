@@ -25,6 +25,7 @@ class PendingUpload {
   final double latitude;
   final double longitude;
   final String timestamp;
+  final String? phone; // Added phone field
   final String status; // 'pending' or 'uploaded'
 
   PendingUpload({
@@ -36,6 +37,7 @@ class PendingUpload {
     required this.latitude,
     required this.longitude,
     required this.timestamp,
+    this.phone,
     this.status = 'pending',
   });
 
@@ -49,6 +51,7 @@ class PendingUpload {
       'latitude': latitude,
       'longitude': longitude,
       'timestamp': timestamp,
+      'phone': phone,
       'status': status,
     };
   }
@@ -63,6 +66,7 @@ class PendingUpload {
       latitude: (map['latitude'] as num).toDouble(),
       longitude: (map['longitude'] as num).toDouble(),
       timestamp: map['timestamp'] as String,
+      phone: map['phone'] as String?,
       status: map['status'] as String,
     );
   }
@@ -87,7 +91,7 @@ class StorageService {
     String path = join(await getDatabasesPath(), 'loan_uploads.db');
     return await openDatabase(
       path,
-      version: 2,
+      version: 3, // Upgrade to version 3
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE pending_uploads(
@@ -99,15 +103,19 @@ class StorageService {
             latitude REAL,
             longitude REAL,
             timestamp TEXT,
+            phone TEXT,
             status TEXT
           )
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
-          // Add localPath column introduced in v2
           await db.execute(
               'ALTER TABLE pending_uploads ADD COLUMN localPath TEXT');
+        }
+        if (oldVersion < 3) {
+          await db.execute(
+              'ALTER TABLE pending_uploads ADD COLUMN phone TEXT');
         }
       },
     );
