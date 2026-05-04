@@ -55,11 +55,14 @@ exports.onLoanCreated = onDocumentCreated(
       assignedOfficerId,
       assignedOfficerName = "Officer",
       disbursementDate,
+      disbursedDate,
       deadline,
       village = "",
       district = "",
       state = "",
     } = loan;
+
+    const actualDisbursementDate = disbursementDate || disbursedDate;
 
     // ── Fetch officer email from Firestore ─────────────────────────────────
     if (!assignedOfficerId) {
@@ -68,7 +71,7 @@ exports.onLoanCreated = onDocumentCreated(
     }
 
     const officerDoc = await db
-      .collection("users")
+      .collection("officers")
       .doc(assignedOfficerId)
       .get();
 
@@ -98,7 +101,7 @@ exports.onLoanCreated = onDocumentCreated(
     const mailOptions = {
       from: `"Loan Tracker App" <${GMAIL_USER.value()}>`,
       to: officerEmail,
-      subject: `📋 New Loan Assignment – ${beneficiaryName}`,
+      subject: `📋 New Loan Assignment`,
       html: `
 <!DOCTYPE html>
 <html>
@@ -112,93 +115,33 @@ exports.onLoanCreated = onDocumentCreated(
     .header { background: linear-gradient(135deg, #7c3aed, #9333ea);
               padding: 32px 24px; color: white; }
     .header h1 { margin: 0; font-size: 22px; font-weight: 600; }
-    .header p  { margin: 6px 0 0; font-size: 14px; opacity: 0.85; }
     .body { padding: 28px 24px; }
     .greeting { font-size: 16px; color: #1f2937; margin-bottom: 16px; }
-    .card { background: #faf5ff; border: 1px solid #e9d5ff;
-            border-radius: 10px; padding: 20px; margin-bottom: 20px; }
-    .card h2 { margin: 0 0 14px; font-size: 14px; color: #7e22ce;
-               text-transform: uppercase; letter-spacing: 0.5px; }
-    .row { display: flex; justify-content: space-between;
-           border-bottom: 1px solid #ede9fe; padding: 8px 0; font-size: 14px; }
-    .row:last-child { border-bottom: none; }
-    .label { color: #6b7280; }
-    .value { color: #1f2937; font-weight: 500; text-align: right; }
-    .badge { display: inline-block; background: #f3e8ff; color: #7e22ce;
-             padding: 4px 12px; border-radius: 20px; font-size: 12px;
-             font-weight: 600; margin-top: 8px; }
-    .footer { padding: 16px 24px; background: #f3f4f6;
-              font-size: 11px; color: #9ca3af; text-align: center; }
     .cta { text-align: center; margin: 24px 0; }
     .cta a { background: linear-gradient(135deg, #7c3aed, #9333ea);
               color: white; text-decoration: none; padding: 12px 28px;
               border-radius: 8px; font-size: 14px; font-weight: 600; }
+    .footer { padding: 16px 24px; background: #f3f4f6;
+              font-size: 11px; color: #9ca3af; text-align: center; }
   </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
     <h1>📋 New Loan Assignment</h1>
-    <p>You have been assigned a new beneficiary loan case</p>
   </div>
   <div class="body">
     <p class="greeting">Dear <strong>${assignedOfficerName}</strong>,</p>
     <p style="color:#4b5563;font-size:14px;line-height:1.6;">
-      A new loan application has been assigned to you. Please review the details
-      below and follow up with the beneficiary at your earliest convenience.
+      A new loan application for <strong>${beneficiaryName}</strong> has been assigned to you.
     </p>
-
-    <div class="card">
-      <h2>👤 Beneficiary Details</h2>
-      <div class="row">
-        <span class="label">Full Name</span>
-        <span class="value">${beneficiaryName}</span>
-      </div>
-      <div class="row">
-        <span class="label">Mobile</span>
-        <span class="value">${phone}</span>
-      </div>
-      <div class="row">
-        <span class="label">Location</span>
-        <span class="value">${[village, district, state].filter(Boolean).join(", ") || "N/A"}</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>💰 Loan Details</h2>
-      <div class="row">
-        <span class="label">Loan ID</span>
-        <span class="value">${loanId}</span>
-      </div>
-      <div class="row">
-        <span class="label">Amount</span>
-        <span class="value">₹${Number(loanAmount).toLocaleString("en-IN")}</span>
-      </div>
-      <div class="row">
-        <span class="label">Purpose</span>
-        <span class="value">${loanPurpose}</span>
-      </div>
-      <div class="row">
-        <span class="label">Disbursement Date</span>
-        <span class="value">${fmt(disbursementDate)}</span>
-      </div>
-      <div class="row">
-        <span class="label">Repayment Deadline</span>
-        <span class="value">${fmt(deadline)}</span>
-      </div>
-      <div class="row">
-        <span class="label">Status</span>
-        <span class="value"><span class="badge">Pending</span></span>
-      </div>
-    </div>
 
     <div class="cta">
       <a href="https://loantrackerapp-37fba.web.app">Open Loan Tracker App</a>
     </div>
 
     <p style="color:#6b7280;font-size:13px;line-height:1.6;">
-      If you have any questions, please contact your admin. Do not reply to this
-      automated email.
+      Please log in to the application to review the details.
     </p>
   </div>
   <div class="footer">
@@ -240,7 +183,7 @@ exports.sendLoanAssignmentEmail = onCall(
 
     const loan = loanDoc.data();
     const officerDoc = await db
-      .collection("users")
+      .collection("officers")
       .doc(loan.assignedOfficerId)
       .get();
 
@@ -254,8 +197,8 @@ exports.sendLoanAssignmentEmail = onCall(
     await transporter.sendMail({
       from: `"Loan Tracker App" <${GMAIL_USER.value()}>`,
       to: officerEmail,
-      subject: `📋 Loan Assignment Notification – ${loan.name}`,
-      text: `Dear ${loan.assignedOfficerName},\n\nYou have been assigned loan ID: ${loanId} for beneficiary ${loan.name}.\n\nLoan Amount: ₹${loan.loanAmount}\nPurpose: ${loan.loanPurpose}\n\nPlease open the Loan Tracker App to review.\n\nRegards,\nAdmin`,
+      subject: `📋 Loan Assignment Notification`,
+      text: `Dear ${loan.assignedOfficerName},\n\nYou have been assigned a new loan application for ${loan.name}.\n\nPlease open the Loan Tracker App to review.\n\nRegards,\nAdmin`,
     });
 
     return { success: true, message: `Email sent to ${officerEmail}` };

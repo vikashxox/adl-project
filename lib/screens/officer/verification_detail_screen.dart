@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
 
 class VerificationDetailScreen extends StatefulWidget {
   final String id;
@@ -44,6 +46,12 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
       }
     }
 
+    final double? lat = (uploadData['latitude'] as num?)?.toDouble();
+    final double? lng = (uploadData['longitude'] as num?)?.toDouble();
+    final String locationDisplay = (lat != null && lng != null)
+        ? '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}'
+        : 'N/A';
+
     return {
       'docId': uploadDoc.id,
       'beneficiaryName': name,
@@ -52,9 +60,11 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
       'purpose': purpose,
       'submittedDate': _formatIsoDate(uploadData['timestamp']?.toString()),
       'imageUrl': uploadData['imageUrl'] ?? '',
-      'location': '${uploadData['latitude'] ?? 'N/A'}, ${uploadData['longitude'] ?? 'N/A'}',
+      'location': locationDisplay,
+      'latitude': lat,
+      'longitude': lng,
       'locationName': 'GPS Coordinates',
-      'timestamp': _formatIsoDate(uploadData['timestamp']?.toString()),
+      'timestamp': _formatIsoDateFull(uploadData['timestamp']?.toString()),
       'description': 'Camera uploaded proof for Loan ID: $loanId.',
       'aiConfidence': 88,
       'status': uploadData['status'] ?? 'pending',
@@ -68,10 +78,37 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
   String _formatIsoDate(String? isoString) {
     if (isoString == null || isoString.isEmpty) return 'N/A';
     try {
-      final d = DateTime.parse(isoString);
-      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+      final d = DateTime.parse(isoString).toLocal();
+      return DateFormat('dd/MM/yyyy').format(d);
     } catch (e) {
       return isoString;
+    }
+  }
+
+  String _formatIsoDateFull(String? isoString) {
+    if (isoString == null || isoString.isEmpty) return 'N/A';
+    try {
+      final d = DateTime.parse(isoString).toLocal();
+      return DateFormat('dd MMM yyyy, hh:mm a').format(d);
+    } catch (e) {
+      return isoString;
+    }
+  }
+
+  Future<void> _openMap(double lat, double lng) async {
+    final googleMapsUrl =
+        Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    final geoUrl = Uri.parse('geo:$lat,$lng?q=$lat,$lng');
+    if (await canLaunchUrl(geoUrl)) {
+      await launchUrl(geoUrl);
+    } else if (await canLaunchUrl(googleMapsUrl)) {
+      await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open maps application.')),
+        );
+      }
     }
   }
 
@@ -334,12 +371,33 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              TextButton(
-                                onPressed: () {},
-                                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
-                                child: const Text('View on Map →',
-                                    style: TextStyle(fontSize: 12, color: AppTheme.blue600)),
-                              ),
+                              Builder(builder: (context) {
+                                final lat = _verification['latitude'] as double?;
+                                final lng = _verification['longitude'] as double?;
+                                final hasCoords = lat != null && lng != null;
+                                return TextButton.icon(
+                                  onPressed: hasCoords
+                                      ? () => _openMap(lat!, lng!)
+                                      : null,
+                                  icon: Icon(
+                                    Icons.map_outlined,
+                                    size: 14,
+                                    color: hasCoords ? AppTheme.blue600 : AppTheme.gray400,
+                                  ),
+                                  label: Text(
+                                    hasCoords ? 'View on Map →' : 'Location unavailable',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: hasCoords ? AppTheme.blue600 : AppTheme.gray400,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: Size.zero,
+                                  ),
+                                );
+                              }),
                             ],
                           ),
                         ),

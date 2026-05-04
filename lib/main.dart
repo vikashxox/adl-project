@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'firebase_options.dart';
 import 'utils/app_theme.dart';
 import 'services/connectivity_service.dart';
 import 'screens/splash_screen.dart';
@@ -35,10 +36,13 @@ void main() async {
 
   // Step 2: Initialize Firebase
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     print('Firebase initialized');
   } catch (e) {
     print('Firebase init error: $e');
+    return;
   }
 
   // Step 3: Start connectivity monitor for offline auto-sync
