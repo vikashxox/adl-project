@@ -1,60 +1,6 @@
+# loan_tracking_app
 
-# 📱 Loan Tracking Application
-
-A comprehensive cross-platform loan tracking system designed for seamless integration between beneficiaries, verification officers, and administrators with GPS-enabled uploads, real-time synchronization, and offline support.
-
-✨ **Core Ecosystem**
-
-🎯 **Beneficiary Module**
-- Phone-based OTP authentication
-- Loan dashboard with status and deadlines
-- GPS-tagged document uploads with camera capture
-- Offline upload queue with auto-sync
-- Submission history with verification status
-
-👮 **Officer Dashboard**
-- Real-time submission review and assignment
-- Approve/reject uploads with comments
-- Full beneficiary and loan detail access
-- Live status updates via Firestore
-- Search and filter capabilities
-
-⚙️ **Admin Control Panel**
-- System overview with key metrics
-- Manage beneficiaries and officers
-- Assign officers to beneficiary accounts
-- Broadcast notifications to all users
-- Export reports and system configuration
-
-🔧 **Core Infrastructure**
-- Cloud Firestore for real-time database
-- Cloudinary for secure image storage
-- SQLite offline persistence
-- Firebase Cloud Messaging (FCM)
-- Cloud Functions for automation
-- Cross-platform Flutter support
-
----
-
-## Design Philosophy
-
-Loan Tracking Application features a clean, intuitive interface that prioritizes user accessibility while maintaining security:
-
-- **User-Centric Design:** Simplified workflows optimized for field officers and rural beneficiaries
-- **Offline-First:** Seamless operation in low-connectivity zones with automatic sync
-- **Real-Time Tracking:** Instant status updates across all user roles
-
----
-
-## Tech Stack
-
-**Frontend:** Flutter & Dart (High-performance UI rendering)
-**Backend:** Firebase (Firestore, Auth, Cloud Functions, Cloud Messaging)
-**Storage:** Cloudinary (Secure image hosting) + SQLite (Local persistence)
-**Navigation:** Open Source Routing Machine (OSRM)
-**Additional:** GPS Integration, Firebase Cloud Messaging
-
----
+A new Flutter project.
 
 ## Getting Started
 
