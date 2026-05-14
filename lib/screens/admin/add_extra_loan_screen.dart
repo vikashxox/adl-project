@@ -114,7 +114,11 @@ class _AddExtraLoanScreenState extends State<AddExtraLoanScreen> {
         'loanAmount': int.tryParse(_loanAmountCtrl.text) ?? 0,
         'loanPurpose': _loanPurpose,
         'assignedOfficer': _assignedOfficer,
-        'assignedOfficerName': _officers.firstWhere((o) => o['id'] == _assignedOfficer)['name'],
+        'assignedOfficerName': _officers
+            .firstWhere(
+              (o) => (o['username'] as String? ?? '') == _assignedOfficer,
+              orElse: () => {'name': 'Unknown Officer'},
+            )['name'],
         'disbursedDate': _disbursementDate!.toIso8601String(),
         'deadline': _deadline!.toIso8601String(),
         'loanId': loanId,
