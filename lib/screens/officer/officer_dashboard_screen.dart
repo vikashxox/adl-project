@@ -21,29 +21,61 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
   List<String> _assignedPhones = [];
   StreamSubscription<QuerySnapshot>? _uploadsSub;
   StreamSubscription<QuerySnapshot>? _beneficiariesSub;
+  String? _officerDocId;
 
   @override
   void initState() {
     super.initState();
-    _loadAssignedData();
+    _loadOfficerDocId();
+  }
+
+  Future<void> _loadOfficerDocId() async {
+    final officerId = AppSession.officerId;
+    if (officerId == null) return;
+
+    try {
+      final officerSnap = await FirebaseFirestore.instance
+          .collection('officers')
+          .where('username', isEqualTo: officerId)
+          .limit(1)
+          .get();
+      if (officerSnap.docs.isNotEmpty) {
+        _officerDocId = officerSnap.docs.first.id;
+      }
+      _loadAssignedData();
+    } catch (e) {
+      print('Error loading officer doc: $e');
+      _loadAssignedData();
+    }
   }
 
   void _loadAssignedData() {
     final officerId = AppSession.officerId;
     if (officerId == null) return;
 
-    _beneficiariesSub = FirebaseFirestore.instance
-        .collection('beneficiaries')
-        .where('assignedOfficer', isEqualTo: officerId)
-        .snapshots()
-        .listen((bSnap) {
-      if (!mounted) return;
-      _assignedPhones = bSnap.docs
-          .map((doc) => (doc.data() as Map<String, dynamic>)['phone'] as String?)
-          .where((phone) => phone != null && phone.isNotEmpty)
-          .cast<String>()
-          .toList();
+    // Query for beneficiaries assigned by username or by doc id (for backward compatibility)
+    Query query = FirebaseFirestore.instance.collection('beneficiaries');
+    if (_officerDocId != null) {
+      // Note: Firestore doesn't support OR in where, so we need to do separate queries or use a different approach
+      // For simplicity, we'll query by 'assignedOfficer' and also check 'assignedOfficerId' in the listen
+    } else {
+      query = query.where('assignedOfficer', isEqualTo: officerId);
+    }
 
+    _beneficiariesSub = query.snapshots().listen((bSnap) {
+      if (!mounted) return;
+      _assignedPhones.clear();
+      for (var doc in bSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final assignedOfficer = data['assignedOfficer'] as String?;
+        final assignedOfficerId = data['assignedOfficerId'] as String?;
+        final phone = data['phone'] as String?;
+        if (phone != null && phone.isNotEmpty) {
+          if (assignedOfficer == officerId || (_officerDocId != null && assignedOfficerId == _officerDocId)) {
+            _assignedPhones.add(phone);
+          }
+        }
+      }
       _setupUploadsSub();
     });
   }

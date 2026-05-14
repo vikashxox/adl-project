@@ -69,7 +69,7 @@ class _OfficerLoginScreenState extends State<OfficerLoginScreen> {
             AppSession.setAdmin();
             Navigator.pushNamedAndRemoveUntil(context, '/admin-dashboard', (route) => false);
           } else {
-            AppSession.setOfficer(_officerIdController.text);
+            AppSession.setOfficer(_officerIdController.text.trim());
             Navigator.pushNamedAndRemoveUntil(context, '/officer-dashboard', (route) => false);
           }
         }
