@@ -126,7 +126,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
   }
 
   Future<void> _loadUploads() async {
-    final uploads = await _storage.getAllUploads();
+    final uploads = await _storage.getAllUploads(phone: AppSession.beneficiaryPhone);
     if (mounted) {
       setState(() {
         _allUploads = uploads;

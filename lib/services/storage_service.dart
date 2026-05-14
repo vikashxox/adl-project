@@ -139,25 +139,40 @@ class StorageService {
     return List.generate(maps.length, (i) => PendingUpload.fromMap(maps[i]));
   }
 
-  /// Get ALL records (both pending and uploaded) for history view
-  Future<List<PendingUpload>> getAllUploads() async {
+  /// Get ALL records (both pending and uploaded) for history view, optionally filtered by phone
+  Future<List<PendingUpload>> getAllUploads({String? phone}) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'pending_uploads',
+      where: phone != null ? 'phone = ?' : null,
+      whereArgs: phone != null ? [phone] : null,
       orderBy: 'id DESC',
     );
     return List.generate(maps.length, (i) => PendingUpload.fromMap(maps[i]));
   }
 
-  /// Get counts of pending vs uploaded records for dashboard badges
-  Future<Map<String, int>> getUploadCounts() async {
+  /// Get counts of pending vs uploaded records for dashboard badges, optionally filtered by phone
+  Future<Map<String, int>> getUploadCounts({String? phone}) async {
     final db = await database;
-    final pending = Sqflite.firstIntValue(await db.rawQuery(
-      "SELECT COUNT(*) FROM pending_uploads WHERE status = 'pending'",
-    )) ?? 0;
-    final uploaded = Sqflite.firstIntValue(await db.rawQuery(
-      "SELECT COUNT(*) FROM pending_uploads WHERE status = 'uploaded'",
-    )) ?? 0;
+    int pending = 0;
+    int uploaded = 0;
+    
+    if (phone != null) {
+      pending = Sqflite.firstIntValue(await db.rawQuery(
+        "SELECT COUNT(*) FROM pending_uploads WHERE status = 'pending' AND phone = ?", [phone]
+      )) ?? 0;
+      uploaded = Sqflite.firstIntValue(await db.rawQuery(
+        "SELECT COUNT(*) FROM pending_uploads WHERE status = 'uploaded' AND phone = ?", [phone]
+      )) ?? 0;
+    } else {
+      pending = Sqflite.firstIntValue(await db.rawQuery(
+        "SELECT COUNT(*) FROM pending_uploads WHERE status = 'pending'",
+      )) ?? 0;
+      uploaded = Sqflite.firstIntValue(await db.rawQuery(
+        "SELECT COUNT(*) FROM pending_uploads WHERE status = 'uploaded'",
+      )) ?? 0;
+    }
+    
     return {'pending': pending, 'uploaded': uploaded};
   }
 

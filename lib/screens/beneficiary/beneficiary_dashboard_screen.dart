@@ -43,7 +43,7 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
   }
 
   Future<void> _loadCounts() async {
-    final counts = await _storage.getUploadCounts();
+    final counts = await _storage.getUploadCounts(phone: AppSession.beneficiaryPhone);
     if (mounted) {
       setState(() {
         _pendingCount = counts['pending'] ?? 0;
