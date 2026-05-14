@@ -95,13 +95,21 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
 
   void _updateErrorMessage() {
     if (_selectedLoanId == null) return;
+
+    final selectedLoan = _availableLoans.firstWhere((l) => l['id'] == _selectedLoanId, orElse: () => {});
+    if (selectedLoan['status'] == 'rejected') {
+      _errorMessage = 'Your loan has been rejected. You cannot upload proof anymore. Please contact the bank.';
+      return;
+    }
+
     int onlineCount = _uploadCounts[_selectedLoanId!] ?? 0;
     int offlineCount = _allUploads.where((u) => u.loanId == _selectedLoanId && u.status == 'pending').length;
     int total = onlineCount + offlineCount;
     
     if (total >= 2) {
       _errorMessage = 'You have exceeded the maximum of 2 uploads for this loan. Please contact the bank.';
-    } else if (_errorMessage == 'You have exceeded the maximum of 2 uploads for this loan. Please contact the bank.') {
+    } else if (_errorMessage == 'You have exceeded the maximum of 2 uploads for this loan. Please contact the bank.' ||
+               _errorMessage == 'Your loan has been rejected. You cannot upload proof anymore. Please contact the bank.') {
       _errorMessage = null;
     }
   }
@@ -144,6 +152,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
             return {
               'id': data['loanId']?.toString() ?? 'N/A',
               'name': data['loanPurpose']?.toString() ?? 'Unknown Purpose',
+              'status': data['status']?.toString() ?? 'pending',
             };
           }).toList();
 
@@ -762,15 +771,22 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
     int onlineCount = _selectedLoanId != null ? (_uploadCounts[_selectedLoanId!] ?? 0) : 0;
     int offlineCount = _selectedLoanId != null ? _allUploads.where((u) => u.loanId == _selectedLoanId && u.status == 'pending').length : 0;
     bool isMaxedOut = (onlineCount + offlineCount) >= 2;
+    
+    final selectedLoan = _selectedLoanId != null 
+        ? _availableLoans.firstWhere((l) => l['id'] == _selectedLoanId, orElse: () => {})
+        : {};
+    bool isRejected = selectedLoan['status'] == 'rejected';
+
+    bool isDisabled = isLoading || isMaxedOut || isRejected;
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: AppTheme.blue600),
+        border: Border.all(color: isDisabled ? AppTheme.gray300 : AppTheme.blue600),
         borderRadius: BorderRadius.circular(14),
       ),
       child: ElevatedButton.icon(
-        onPressed: (isLoading || isMaxedOut) ? null : _capturePhoto,
+        onPressed: isDisabled ? null : _capturePhoto,
         icon: isLoading
             ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
             : const Icon(Icons.camera_alt, color: AppTheme.blue600, size: 20),

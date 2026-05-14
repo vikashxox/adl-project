@@ -175,7 +175,7 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
                   });
                 }
 
-                if (newStatus == 'approved' && phone != null && loanId != null) {
+                if ((newStatus == 'approved' || newStatus == 'rejected') && phone != null && loanId != null) {
                   final benSnap = await FirebaseFirestore.instance
                       .collection('beneficiaries')
                       .where('phone', isEqualTo: phone)
@@ -183,10 +183,16 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
                       .limit(1)
                       .get();
                   if (benSnap.docs.isNotEmpty) {
-                    await benSnap.docs.first.reference.update({
-                      'status': 'approved',
-                      'progress': 100,
-                    });
+                    if (newStatus == 'approved') {
+                      await benSnap.docs.first.reference.update({
+                        'status': 'approved',
+                        'progress': 100,
+                      });
+                    } else {
+                      await benSnap.docs.first.reference.update({
+                        'status': 'rejected',
+                      });
+                    }
                   }
                 }
               } catch (e) {

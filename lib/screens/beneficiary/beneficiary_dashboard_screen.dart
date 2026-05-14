@@ -256,9 +256,17 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
                                     Container(
                                       padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
-                                        color: lStatus == 'approved' ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+                                        color: lStatus == 'approved' 
+                                            ? const Color(0xFFF0FDF4) 
+                                            : lStatus == 'rejected' 
+                                                ? const Color(0xFFFEF2F2) 
+                                                : const Color(0xFFFFFBEB),
                                         border: Border.all(
-                                          color: lStatus == 'approved' ? const Color(0xFF86EFAC) : const Color(0xFFFCD34D), 
+                                          color: lStatus == 'approved' 
+                                              ? const Color(0xFF86EFAC) 
+                                              : lStatus == 'rejected' 
+                                                  ? const Color(0xFFFECACA) 
+                                                  : const Color(0xFFFCD34D), 
                                           width: 1.5,
                                         ),
                                         borderRadius: BorderRadius.circular(12),
@@ -268,15 +276,31 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
                                           Row(
                                             children: [
                                               Icon(
-                                                lStatus == 'approved' ? Icons.check_circle : Icons.access_time, 
-                                                color: lStatus == 'approved' ? AppTheme.green600 : AppTheme.amber600, 
+                                                lStatus == 'approved' 
+                                                    ? Icons.check_circle 
+                                                    : lStatus == 'rejected'
+                                                        ? Icons.cancel
+                                                        : Icons.access_time, 
+                                                color: lStatus == 'approved' 
+                                                    ? AppTheme.green600 
+                                                    : lStatus == 'rejected'
+                                                        ? AppTheme.red600
+                                                        : AppTheme.amber600, 
                                                 size: 18,
                                               ),
                                               const SizedBox(width: 8),
                                               Text(
-                                                lStatus == 'approved' ? 'Done' : 'Pending Verification',
+                                                lStatus == 'approved' 
+                                                    ? 'Done' 
+                                                    : lStatus == 'rejected'
+                                                        ? 'Rejected'
+                                                        : 'Pending Verification',
                                                 style: TextStyle(
-                                                  color: lStatus == 'approved' ? AppTheme.green600 : AppTheme.amber600, 
+                                                  color: lStatus == 'approved' 
+                                                      ? AppTheme.green600 
+                                                      : lStatus == 'rejected'
+                                                          ? AppTheme.red600
+                                                          : AppTheme.amber600, 
                                                   fontSize: 12, 
                                                   fontWeight: FontWeight.w600,
                                                 ),
@@ -287,24 +311,36 @@ class _BeneficiaryDashboardScreenState extends State<BeneficiaryDashboardScreen>
                                           Row(
                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             children: [
-                                              Text(lStatus == 'approved' ? 'Utilization Process' : 'Utilization Progress',
-                                                  style: const TextStyle(fontSize: 11, color: AppTheme.gray600)),
-                                              Text(lStatus == 'approved' ? '100%' : '$lProgress%',
-                                                  style: const TextStyle(fontSize: 11, color: AppTheme.gray600)),
+                                              Text(
+                                                  lStatus == 'approved' 
+                                                      ? 'Utilization Process' 
+                                                      : lStatus == 'rejected'
+                                                          ? 'Contact bank for details'
+                                                          : 'Utilization Progress',
+                                                  style: TextStyle(
+                                                    fontSize: 11, 
+                                                    color: lStatus == 'rejected' ? AppTheme.red600 : AppTheme.gray600,
+                                                    fontWeight: lStatus == 'rejected' ? FontWeight.w600 : FontWeight.normal,
+                                                  )),
+                                              if (lStatus != 'rejected')
+                                                Text(lStatus == 'approved' ? '100%' : '$lProgress%',
+                                                    style: const TextStyle(fontSize: 11, color: AppTheme.gray600)),
                                             ],
                                           ),
-                                          const SizedBox(height: 8),
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(4),
-                                            child: LinearProgressIndicator(
-                                              value: lProgress / 100,
-                                              minHeight: 6,
-                                              backgroundColor: AppTheme.gray200,
-                                              valueColor: AlwaysStoppedAnimation<Color>(
-                                                lStatus == 'approved' ? AppTheme.green500 : AppTheme.blue500,
+                                          if (lStatus != 'rejected') ...[
+                                            const SizedBox(height: 8),
+                                            ClipRRect(
+                                              borderRadius: BorderRadius.circular(4),
+                                              child: LinearProgressIndicator(
+                                                value: lProgress / 100,
+                                                minHeight: 6,
+                                                backgroundColor: AppTheme.gray200,
+                                                valueColor: AlwaysStoppedAnimation<Color>(
+                                                  lStatus == 'approved' ? AppTheme.green500 : AppTheme.blue500,
+                                                ),
                                               ),
                                             ),
-                                          ),
+                                          ],
                                         ],
                                       ),
                                     ),
