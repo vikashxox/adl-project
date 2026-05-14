@@ -18,12 +18,12 @@ class UploadHistoryQuery {
 
   static final _uploads = FirebaseFirestore.instance.collection('uploads');
 
-  /// Beneficiary-only uploads, newest first.
+  /// Beneficiary-only uploads, filtered by phone, newest first.
   ///
-  /// Query: `where role == beneficiary` + `orderBy createdAt desc`
-  static Stream<QuerySnapshot<Map<String, dynamic>>> beneficiaryUploadsStream() {
+  /// Query: `where phone == phone` + `orderBy createdAt desc`
+  static Stream<QuerySnapshot<Map<String, dynamic>>> beneficiaryUploadsStream(String phone) {
     return _uploads
-        .where('role', isEqualTo: 'beneficiary')
+        .where('phone', isEqualTo: phone)
         .orderBy('createdAt', descending: true)
         .snapshots();
   }

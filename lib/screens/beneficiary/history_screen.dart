@@ -5,6 +5,7 @@ import '../../services/upload_history_query.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/firestore_image_url.dart';
 import '../../utils/firestore_query_helpers.dart';
+import '../../services/app_session.dart';
 import 'upload_history_detail_screen.dart';
 
 /// Beneficiary upload history — live Firestore stream, card list, detail on tap.
@@ -68,7 +69,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               key: ValueKey(_streamKey),
-              stream: UploadHistoryQuery.beneficiaryUploadsStream(),
+              stream: UploadHistoryQuery.beneficiaryUploadsStream(AppSession.beneficiaryPhone ?? ''),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return FirestoreStreamErrorPanel(

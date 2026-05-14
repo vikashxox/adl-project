@@ -199,15 +199,7 @@ class _OfficerLoginScreenState extends State<OfficerLoginScreen> {
                       prefixIcon: Icon(Icons.lock_outline, color: AppTheme.gray400),
                     ),
                   ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {},
-                      child: const Text('Forgot Password?',
-                          style: TextStyle(fontSize: 12, color: AppTheme.green600)),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
 
                   // Login Button
                   Container(
