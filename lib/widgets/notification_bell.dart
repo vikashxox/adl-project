@@ -80,6 +80,11 @@ class _NotificationBellState extends State<NotificationBell> {
         final tr = data['targetRole'] as String? ?? 'all';
         if (tr != 'all' && tr != roleStr) continue;
 
+        final tp = data['targetPhone'] as String?;
+        if (tp != null && tp.isNotEmpty) {
+          if (roleStr != 'beneficiary' || AppSession.beneficiaryPhone != tp) continue;
+        }
+
         DateTime? createdAt;
         if (data['createdAt'] != null) {
           createdAt = (data['createdAt'] as Timestamp).toDate();
@@ -227,7 +232,12 @@ class _NotificationBellState extends State<NotificationBell> {
                         ? snapshot.data!.docs.map((d) => d.data() as Map<String, dynamic>)
                             .where((data) {
                               final tr = data['targetRole'] as String? ?? 'all';
-                              return tr == 'all' || tr == AppSession.role.name;
+                              if (tr != 'all' && tr != AppSession.role.name) return false;
+                              final tp = data['targetPhone'] as String?;
+                              if (tp != null && tp.isNotEmpty) {
+                                if (AppSession.role.name != 'beneficiary' || AppSession.beneficiaryPhone != tp) return false;
+                              }
+                              return true;
                             }).toList() 
                         : <Map<String, dynamic>>[];
                     final allNotifications = [...firestoreDocs, ..._localNotifications];

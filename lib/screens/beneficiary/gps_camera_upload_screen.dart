@@ -32,6 +32,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
   List<Map<String, String>> _availableLoans = [];
   String? _selectedLoanId;
   bool _isLoadingLoans = true;
+  Map<String, int> _uploadCounts = {};
 
   // ─── Capture State ─────────────────────────────────────────────────────────
   File? _image;
@@ -54,12 +55,55 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
   void initState() {
     super.initState();
     _fetchLoansFromFirestore();
+    _fetchUploadCounts();
     
     _loadUploads();
     // Listen for connectivity changes to update the UI in real-time
     _connectivity.addListener(_onConnectivityChanged);
     // Refresh uploads list when auto-sync completes in background
     _connectivity.onSyncComplete = _loadUploads;
+  }
+
+  Future<void> _fetchUploadCounts() async {
+    final phone = AppSession.beneficiaryPhone;
+    if (phone == null) return;
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('uploads')
+          .where('phone', isEqualTo: phone)
+          .get();
+          
+      Map<String, int> counts = {};
+      for (var doc in snap.docs) {
+        final data = doc.data();
+        final lId = data['loanId'] as String?;
+        if (lId != null) {
+          counts[lId] = (counts[lId] ?? 0) + 1;
+        }
+      }
+      
+      if (mounted) {
+        setState(() {
+          _uploadCounts = counts;
+          _updateErrorMessage();
+        });
+      }
+    } catch (e) {
+      print('Error fetching upload counts: $e');
+    }
+  }
+
+  void _updateErrorMessage() {
+    if (_selectedLoanId == null) return;
+    int onlineCount = _uploadCounts[_selectedLoanId!] ?? 0;
+    int offlineCount = _allUploads.where((u) => u.loanId == _selectedLoanId && u.status == 'pending').length;
+    int total = onlineCount + offlineCount;
+    
+    if (total >= 2) {
+      _errorMessage = 'You have exceeded the maximum of 2 uploads for this loan. Please contact the bank.';
+    } else if (_errorMessage == 'You have exceeded the maximum of 2 uploads for this loan. Please contact the bank.') {
+      _errorMessage = null;
+    }
   }
 
   @override
@@ -78,6 +122,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
     if (mounted) {
       setState(() {
         _allUploads = uploads;
+        _updateErrorMessage();
       });
     }
   }
@@ -106,6 +151,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
             _selectedLoanId = _availableLoans.first['id'];
           }
           _isLoadingLoans = false;
+          _updateErrorMessage();
         });
       }
     } catch (e) {
@@ -480,6 +526,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
                             setState(() {
                               _selectedLoanId = val;
                               _errorMessage = null;
+                              _updateErrorMessage();
                             });
                           },
                         ),
@@ -712,6 +759,10 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
 
   Widget _buildCaptureButton() {
     final bool isLoading = _isFetchingLocation;
+    int onlineCount = _selectedLoanId != null ? (_uploadCounts[_selectedLoanId!] ?? 0) : 0;
+    int offlineCount = _selectedLoanId != null ? _allUploads.where((u) => u.loanId == _selectedLoanId && u.status == 'pending').length : 0;
+    bool isMaxedOut = (onlineCount + offlineCount) >= 2;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -719,7 +770,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
         borderRadius: BorderRadius.circular(14),
       ),
       child: ElevatedButton.icon(
-        onPressed: isLoading ? null : _capturePhoto,
+        onPressed: (isLoading || isMaxedOut) ? null : _capturePhoto,
         icon: isLoading
             ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
             : const Icon(Icons.camera_alt, color: AppTheme.blue600, size: 20),
@@ -739,6 +790,10 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
 
   Widget _buildUploadButton() {
     final isOnline = _connectivity.isOnline;
+    int onlineCount = _selectedLoanId != null ? (_uploadCounts[_selectedLoanId!] ?? 0) : 0;
+    int offlineCount = _selectedLoanId != null ? _allUploads.where((u) => u.loanId == _selectedLoanId && u.status == 'pending').length : 0;
+    bool isMaxedOut = (onlineCount + offlineCount) >= 2;
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -758,7 +813,7 @@ class _GpsCameraUploadScreenState extends State<GpsCameraUploadScreen> {
         ],
       ),
       child: ElevatedButton.icon(
-        onPressed: _isUploading
+        onPressed: (_isUploading || isMaxedOut)
             ? null
             : () async {
                 print('📸 UPLOAD BUTTON CLICKED');

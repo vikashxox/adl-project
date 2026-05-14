@@ -144,28 +144,49 @@ class _VerificationDetailScreenState extends State<VerificationDetailScreen> {
                       ? 'rejected'
                       : 'flagged';
               try {
+                final uploadDocPre = await FirebaseFirestore.instance.collection('uploads').doc(widget.id).get();
+                final phone = uploadDocPre.data()?['phone'];
+                final loanId = uploadDocPre.data()?['loanId'];
+
                 await FirebaseFirestore.instance.collection('uploads').doc(widget.id).update({
                   'status': newStatus,
                   'officerRemarks': _remarksController.text,
                 });
 
-                if (newStatus == 'approved') {
-                  final uploadDoc = await FirebaseFirestore.instance.collection('uploads').doc(widget.id).get();
-                  final phone = uploadDoc.data()?['phone'];
-                  final loanId = uploadDoc.data()?['loanId'];
-                  if (phone != null && loanId != null) {
-                    final benSnap = await FirebaseFirestore.instance
-                        .collection('beneficiaries')
-                        .where('phone', isEqualTo: phone)
-                        .where('loanId', isEqualTo: loanId)
-                        .limit(1)
-                        .get();
-                    if (benSnap.docs.isNotEmpty) {
-                      await benSnap.docs.first.reference.update({
-                        'status': 'approved',
-                        'progress': 100,
-                      });
-                    }
+                if (phone != null) {
+                  String title = 'Upload Update';
+                  String message = '';
+                  if (newStatus == 'approved') {
+                     title = 'Submission Approved';
+                     message = 'Your upload for loan ${loanId ?? 'N/A'} was approved.';
+                  } else if (newStatus == 'rejected') {
+                     title = 'Submission Rejected';
+                     message = 'Your upload for loan ${loanId ?? 'N/A'} was rejected. Remarks: ${_remarksController.text}';
+                  } else {
+                     title = 'Resubmission Requested';
+                     message = 'Your upload for loan ${loanId ?? 'N/A'} was flagged. Please resubmit. Remarks: ${_remarksController.text}';
+                  }
+                  await FirebaseFirestore.instance.collection('notifications').add({
+                    'title': title,
+                    'message': message,
+                    'targetRole': 'beneficiary',
+                    'targetPhone': phone,
+                    'createdAt': FieldValue.serverTimestamp(),
+                  });
+                }
+
+                if (newStatus == 'approved' && phone != null && loanId != null) {
+                  final benSnap = await FirebaseFirestore.instance
+                      .collection('beneficiaries')
+                      .where('phone', isEqualTo: phone)
+                      .where('loanId', isEqualTo: loanId)
+                      .limit(1)
+                      .get();
+                  if (benSnap.docs.isNotEmpty) {
+                    await benSnap.docs.first.reference.update({
+                      'status': 'approved',
+                      'progress': 100,
+                    });
                   }
                 }
               } catch (e) {
